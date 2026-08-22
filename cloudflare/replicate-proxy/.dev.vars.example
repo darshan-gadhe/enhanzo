@@ -1,0 +1,8 @@
+# Local development secrets for `wrangler dev`. Copy to `.dev.vars` (gitignored).
+#
+# In production these are NOT set here — they are uploaded with:
+#   npx wrangler secret put REPLICATE_API_TOKEN
+#   npx wrangler secret put APP_KEY
+
+REPLICATE_API_TOKEN=r8_your_token_here
+APP_KEY=generate_with_openssl_rand_base64_32

@@ -1,0 +1,21 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // Normal run: credentials come from .env, which is gitignored. Whichever
+      // mode .env is set to (direct token or Cloudflare proxy) is what runs.
+      "name": "Enhanzo",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "toolArgs": ["--dart-define-from-file=.env"]
+    },
+    {
+      // No credentials: the app runs its simulated pipeline on sample imagery.
+      "name": "Enhanzo (demo, no credentials)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart"
+    }
+  ]
+}
