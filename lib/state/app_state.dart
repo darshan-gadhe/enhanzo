@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 
+import '../data/edits_store.dart';
 import '../data/replicate/enhance_job.dart';
 import '../data/replicate/real_esrgan.dart';
 import '../data/replicate/replicate_client.dart';
@@ -705,6 +706,21 @@ class EntitlementController extends Notifier<Entitlement> {
 final entitlementProvider = NotifierProvider<EntitlementController, Entitlement>(
   EntitlementController.new,
 );
+
+/// Startup housekeeping: clears saved edits past their retention window.
+///
+/// Every enhance writes a source and a result file into app documents, and
+/// [HistoryController] holds its list only in memory — so after a relaunch the
+/// entries are gone while the files remain, invisible and unreachable. Without
+/// this they accumulate for the life of the install, and the Privacy Policy's
+/// promise that generated images "may be automatically deleted" after about 30
+/// days is simply untrue.
+///
+/// Watched from [AppShell] like the other bootstraps. Never throws, and
+/// nothing waits on it — tidying that fails is not worth a visible error.
+final editsMaintenanceProvider = FutureProvider<int>((ref) {
+  return EditsStore.purgeExpired();
+});
 
 /// Whether the persistent bottom nav should show (hidden in the edit flow).
 ///

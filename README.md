@@ -14,7 +14,6 @@ REPLICATE_PROXY_URL=
 REPLICATE_APP_KEY=
 REVENUECAT_API_KEY_ANDROID=
 META_INTERSTITIAL_PLACEMENT_ID=
-META_REWARDED_PLACEMENT_ID=
 META_TESTING_DEVICE_HASH=   # optional, for Meta test ads
 ```
 
@@ -107,10 +106,10 @@ abandoned edit stops costing money.
 
 ## Platform notes
 
-- iOS: photo-library and camera usage strings are in `ios/Runner/Info.plist`.
-- Android: `INTERNET` is declared in the main manifest (release builds need it).
-- macOS: the sandbox has `com.apple.security.network.client`.
-- Web is not a target — the pipeline works in `dart:io` files.
+Android is the only target — the iOS, macOS, web and desktop folders were
+removed. `INTERNET` is declared in the main manifest (release builds need it),
+and `com.android.vending.BILLING` for Play Billing. `AD_ID` is merged in by
+Meta's SDK.
 
 ## Tests
 

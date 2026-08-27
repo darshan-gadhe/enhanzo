@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+1
+version: 1.0.0+2
 
 environment:
   sdk: ^3.11.1
@@ -56,9 +56,9 @@ dependencies:
   purchases_ui_flutter: ^10.9.1
   # Privacy Policy / Terms of Use links (Settings).
   url_launcher: ^6.3.2
-  # Meta Audience Network — interstitial + rewarded ads. See lib/data/ads/
-  # and lib/widgets/rewarded_ad_gate.dart. Replaced google_mobile_ads, so the
-  # Google UMP consent flow went with it: Meta's SDK carries its own.
+  # Meta Audience Network — interstitial ads only (no banner, no rewarded).
+  # See lib/data/ads/. Replaced google_mobile_ads, so the Google UMP consent
+  # flow went with it: Meta's SDK carries its own.
   #
   # This wrapper is the maintained one of the two on pub.dev. The older
   # `facebook_audience_network` cannot build here at all — it declares no
@@ -76,6 +76,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  path_provider_platform_interface: ^2.1.3
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/edits_store.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
 import '../theme/theme.dart';
@@ -503,7 +505,20 @@ class _DetailSheet extends ConsumerWidget {
                   // mistaken one. The index is captured first so undo can put
                   // the entry back in its own day group.
                   final index = entries.indexWhere((e) => e.id == entry.id);
-                  final undo = AppSnack.undoable(context);
+                  final undo = AppSnack.undoable(
+                    context,
+                    // Once undo has lapsed the delete is final, so the images
+                    // themselves go too. Dropping the row alone used to leave
+                    // both files on disk forever — unreachable, since History
+                    // isn't persisted — and made the Privacy Policy's "delete
+                    // your content in the app" promise untrue.
+                    onExpired: () => unawaited(
+                      EditsStore.deleteFiles([
+                        entry.sourcePath,
+                        entry.resultPath,
+                      ]),
+                    ),
+                  );
                   Navigator.of(context).pop();
                   history.remove(entry.id);
                   undo(

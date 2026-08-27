@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:path_provider/path_provider.dart';
 
+import '../edits_store.dart';
 import '../image_ops.dart';
 import 'real_esrgan.dart';
 import 'replicate_client.dart';
@@ -113,7 +113,7 @@ class EnhanceJob {
 
     try {
       onPhase(EnhancePhase.preparing);
-      final dir = await _editsDirectory();
+      final dir = await EditsStore.directory();
       final stamp = DateTime.now().millisecondsSinceEpoch;
       final source = await ImageOps.cropToRatio(
         photo,
@@ -196,15 +196,6 @@ class EnhanceJob {
 
   void _throwIfCancelled() {
     if (_cancelled) throw const EnhanceCancelled();
-  }
-
-  /// Where finished edits live: inside app documents, so they survive relaunch
-  /// and can be handed to the OS share sheet by path.
-  static Future<Directory> _editsDirectory() async {
-    final documents = await getApplicationDocumentsDirectory();
-    final dir = Directory('${documents.path}/edits');
-    if (!await dir.exists()) await dir.create(recursive: true);
-    return dir;
   }
 
   static String _extensionOf(Uri url) {

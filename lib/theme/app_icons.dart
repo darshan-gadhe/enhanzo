@@ -96,11 +96,7 @@ class AppIcons {
   /// Informational note (share-sheet footnote, info sheets).
   static const IconData info = LucideIcons.info;
 
-  /// Watch a rewarded ad.
-  static const IconData playCircle = LucideIcons.circlePlay;
 
-  /// Premium / unlock affordance next to an ad-gated action.
-  static const IconData sparkles = LucideIcons.sparkles;
 
   // ---- Status ----
   /// Something went wrong (processing failure).

@@ -1,9 +1,9 @@
 import 'dart:async';
 
 import 'package:easy_audience_network/easy_audience_network.dart';
+import 'package:flutter/foundation.dart';
 
 import 'ad_config.dart';
-import 'rewarded_ad_service.dart' show RewardedAdService;
 
 /// How one interstitial attempt ended.
 enum InterstitialOutcome {
@@ -15,40 +15,78 @@ enum InterstitialOutcome {
   /// and carry on: an interstitial that fails to load is never a reason to
   /// block the user from what they were doing.
   unavailable,
+
+  /// Held back by the cooldown: an interstitial ran too recently. Distinct
+  /// from [unavailable] so "we chose not to" is never mistaken for "Meta had
+  /// nothing", which is the difference between a healthy fill rate and a
+  /// broken placement when reading logs.
+  suppressed,
 }
 
 /// Loads and shows one Meta Audience Network interstitial at a time.
 ///
-/// Unlike the rewarded ad, nothing is ever unlocked in exchange for this —
-/// it's a full-screen break between actions, so the caller does not wait on
-/// the result to decide anything. [showInterstitial] still resolves once the
-/// ad is dismissed so a caller *may* sequence work after it if it wants to.
+/// Nothing is ever unlocked in exchange for one — it is a full-screen break
+/// between actions, so the caller does not wait on the result to decide
+/// anything. [showInterstitial] still resolves once the ad is dismissed, so a
+/// caller *may* sequence work after it if it wants to.
 class InterstitialAdService {
   InterstitialAdService._();
 
   static bool _busy = false;
 
-  /// Ceiling on the *load* phase only. Matches the native rewarded bridge's
-  /// own backstop (MetaRewardedInterstitial.LOAD_TIMEOUT_MS).
+  /// When an interstitial was last actually shown. Null until the first one.
+  static DateTime? _lastShownAt;
+
+  /// Ceiling on the *load* phase only — never on display, since a user
+  /// looking at an ad legitimately takes time. Without it, a load that
+  /// reports nothing at all (an SDK that failed to initialize, say) would
+  /// leave `_busy` set for the rest of the process and silently refuse every
+  /// later interstitial.
   static const Duration _loadTimeout = Duration(seconds: 30);
+
+  /// Shortest gap allowed between two interstitials.
+  ///
+  /// Without one, an interstitial fired on *every* saved edit — so a user
+  /// working through a batch of photos met a full-screen ad each time. Both
+  /// Meta's and Play's policies treat that frequency as a bad-experience
+  /// signal, and it is the sort of thing that gets a placement throttled
+  /// rather than earning more.
+  static const Duration minInterval = Duration(minutes: 3);
 
   /// True while an interstitial is loading or on screen — so a caller can
   /// skip asking for one rather than queueing a second.
   static bool get isBusy => _busy;
 
+  /// Whether [now] is still inside the cooldown that began at [lastShownAt].
+  ///
+  /// Pulled out as pure logic so the rule is testable on its own, without a
+  /// platform channel or a real ad in the way.
+  @visibleForTesting
+  static bool isWithinCooldown(DateTime? lastShownAt, DateTime now) {
+    if (lastShownAt == null) return false;
+    return now.difference(lastShownAt) < minInterval;
+  }
+
+  /// Clears the cooldown. Tests only — the app never needs it.
+  @visibleForTesting
+  static void resetCooldownForTest() => _lastShownAt = null;
+
   /// Shows an interstitial, resolving when it is dismissed or when it turns
   /// out it can't be shown at all. Never throws.
   static Future<InterstitialOutcome> showInterstitial() async {
-    if (!RewardedAdService.isSupportedPlatform ||
+    if (!AdConfig.isSupportedPlatform ||
         !AdConfig.isInterstitialConfigured) {
       return InterstitialOutcome.unavailable;
     }
     if (_busy) return InterstitialOutcome.unavailable;
+    if (isWithinCooldown(_lastShownAt, DateTime.now())) {
+      return InterstitialOutcome.suppressed;
+    }
     _busy = true;
 
-    // Single-use, exactly like the rewarded ad: `load()` and `show()` each
-    // assert they run at most once, so this is built fresh and destroyed at
-    // the end of the attempt.
+    // Single-use: `load()` and `show()` each assert they run at most once, so
+    // this is built fresh per attempt and destroyed at the end. Reusing one is
+    // how this crashes.
     final ad = InterstitialAd(AdConfig.interstitialPlacementId);
     final completer = Completer<InterstitialOutcome>();
 
@@ -71,7 +109,12 @@ class InterstitialAdService {
                 )),
           );
         },
-        onDismissed: () => finish(InterstitialOutcome.shown),
+        onDismissed: () {
+          // Stamped on a real display, not on a load attempt: a no-fill must
+          // not start a cooldown and silence the next genuine opportunity.
+          _lastShownAt = DateTime.now();
+          finish(InterstitialOutcome.shown);
+        },
         onError: (_, _) => finish(InterstitialOutcome.unavailable),
       );
 

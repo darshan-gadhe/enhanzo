@@ -4,20 +4,14 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/ads/ad_config.dart';
 import '../../data/ads/interstitial_ad_service.dart';
-import '../../data/ads/rewarded_ad_service.dart';
 import '../../data/catalog.dart';
-import '../../data/replicate/real_esrgan.dart';
-import '../../data/replicate/replicate_config.dart';
 import '../../models/models.dart';
 import '../../state/app_state.dart';
 import '../../theme/theme.dart';
 import '../../widgets/components/components.dart';
 import '../../widgets/demo_image.dart';
 import '../../widgets/edit_image.dart';
-import '../../widgets/paywall.dart';
-import '../../widgets/rewarded_ad_gate.dart';
 import '../../widgets/share_sheet.dart';
 import 'photo_source_sheet.dart';
 
@@ -35,74 +29,6 @@ import 'photo_source_sheet.dart';
 void _maybeShowInterstitial(WidgetRef ref) {
   if (ref.read(entitlementProvider).isPro) return;
   unawaited(InterstitialAdService.showInterstitial());
-}
-
-/// Whether an enhance run may start now — showing the rewarded-ad gate first
-/// when, and only when, it genuinely applies.
-///
-/// The gate is deliberately *skipped* in every case where asking for the
-/// user's attention would be dishonest or useless:
-///
-/// * **Pro users** have already paid for an ad-free app.
-/// * **The demo pipeline** (no photo picked) spends nothing to run.
-/// * **A build with no Replicate credentials** is about to fail with its own
-///   message — an ad in front of an error is worse than no ad.
-/// * **A tool with no model behind it** (Object Removal, Background, …) is
-///   likewise about to fail, so it is never gated.
-/// * **No placement configured, or not Android** — the run proceeds. This is
-///   the important one: without it, a build whose
-///   `META_REWARDED_PLACEMENT_ID` is blank would leave free users unable to
-///   enhance anything at all.
-///
-/// Returns true if the caller should go ahead and start the run.
-Future<bool> _adGateAllows(
-  BuildContext context,
-  WidgetRef ref,
-  String tool,
-) async {
-  if (ref.read(entitlementProvider).isPro) return true;
-
-  final state = ref.read(flowProvider);
-  if (state.photo == null) return true;
-  if (!ReplicateConfig.isConfigured) return true;
-  if (!RealEsrgan.supports(tool)) return true;
-  if (!RewardedAdService.isSupportedPlatform ||
-      !AdConfig.isRewardedConfigured) {
-    return true;
-  }
-
-  final result = await showRewardedAdGate(context, ref, actionVerb: 'Enhance');
-  switch (result) {
-    case AdGateResult.rewardEarned:
-      return true;
-    case AdGateResult.choseGoPremium:
-      // RevenueCat's paywall is a native modal presented over whatever is on
-      // screen, so the flow no longer has to be torn down to reveal it — the
-      // user keeps their photo and crop, and a purchase drops them straight
-      // back here.
-      final outcome = await showPaywall();
-      if (!context.mounted) return false;
-      if (outcome == PaywallResult.error) {
-        // RevenueCat could not present — no key for this build, or no paywall
-        // published for the current offering. Say so: the user deliberately
-        // asked for Premium, and silently returning them to the canvas with
-        // nothing on screen is the dead-button experience this gate exists to
-        // avoid.
-        AppSnack.show(
-          context,
-          "Couldn't open subscriptions right now. Please try again.",
-          overlay: true,
-        );
-        return false;
-      }
-      // Bought or restored: they are Pro now, so the run they were trying to
-      // start should just proceed. The entitlement listener has already
-      // updated state by this point.
-      return outcome == PaywallResult.purchased ||
-          outcome == PaywallResult.restored;
-    case AdGateResult.dismissed:
-      return false;
-  }
 }
 
 /// Full-screen modal overlay that renders the current [EditFlow] step.
@@ -208,23 +134,6 @@ class _CropStep extends ConsumerWidget {
   /// Widest the crop canvas is allowed to grow on large screens.
   static const double _canvasMaxWidth = 320;
 
-  /// "Next" — gated only on the branch that goes straight into processing.
-  /// With no tool chosen yet this just advances to the picker, which spends
-  /// nothing, so the ad is asked for there instead.
-  Future<void> _cropNext(BuildContext context, WidgetRef ref) async {
-    final state = ref.read(flowProvider);
-    if (state.tool.isEmpty) {
-      ref.read(flowProvider.notifier).cropNext();
-      return;
-    }
-    if (!await _adGateAllows(context, ref, state.displayTool)) return;
-    // The gate awaits a sheet, so the flow may have been closed or rewound
-    // underneath it before this resumes.
-    if (!context.mounted) return;
-    if (ref.read(flowProvider).step != EditFlow.crop) return;
-    ref.read(flowProvider.notifier).cropNext();
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = PaletteScope.of(context);
@@ -248,7 +157,7 @@ class _CropStep extends ConsumerWidget {
             trailing: AppTextButton(
               label: 'Next',
               color: p.accent,
-              onTap: () => _cropNext(context, ref),
+              onTap: flow.cropNext,
             ),
           ),
           Expanded(
@@ -434,19 +343,6 @@ class _CropGridPainter extends CustomPainter {
 class _ToolPickStep extends ConsumerWidget {
   const _ToolPickStep();
 
-  /// Choosing a tool here starts the run immediately, so this is where the
-  /// gate belongs for a flow that entered without a tool already picked.
-  Future<void> _chooseTool(
-    BuildContext context,
-    WidgetRef ref,
-    String tool,
-  ) async {
-    if (!await _adGateAllows(context, ref, tool)) return;
-    if (!context.mounted) return;
-    if (ref.read(flowProvider).step != EditFlow.tool) return;
-    ref.read(flowProvider.notifier).chooseTool(tool);
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = PaletteScope.of(context);
@@ -491,7 +387,7 @@ class _ToolPickStep extends ConsumerWidget {
                       for (final t in categories[i].tools)
                         _ToolPill(
                           tool: t,
-                          onTap: () => _chooseTool(context, ref, t.name),
+                          onTap: () => flow.chooseTool(t.name),
                         ),
                     ],
                   ),

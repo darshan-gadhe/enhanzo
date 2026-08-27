@@ -23,12 +23,10 @@ Your privacy matters to us. This policy explains what information we collect whe
 1. INFORMATION WE COLLECT
 
 a. Content You Provide
-• Text Prompts — the text you enter to generate or enhance images.
 • Uploaded Images — photos you upload for editing or enhancement.
-• Generated Images — the output images created by the AI based on your prompts and uploads.
+• Generated Images — the output images created by the AI from the photos you upload.
 
 b. Information Collected Automatically
-• Usage Data — which features you use, how often, and general in-app activity, to help us understand and improve the app.
 • Advertising Identifiers — our app displays ads. Advertising partners may collect device advertising identifiers (such as Google Advertising ID / IDFA) to show relevant ads and measure ad performance.
 • Purchase and Subscription Data — our app offers a premium subscription. Purchases are processed by Google Play Store / Apple App Store. We may receive limited transaction details (such as purchase date, product ID, and subscription status) to activate your premium features. We never collect or store your card, bank, or payment credentials — these are handled entirely by Google/Apple.
 
@@ -36,18 +34,17 @@ Note: Our app does not require you to create an account or log in, so we do not 
 
 2. HOW WE USE YOUR INFORMATION
 
-• To Provide the Service: We use your prompts and images to generate your enhanced/output images.
+• To Provide the Service: We use your images to generate your enhanced/output images.
 • To Show Ads: We work with advertising partners to display ads within the app, which may be personalized based on your advertising identifier and app usage.
 • To Manage Your Premium Subscription: We use purchase data to verify your subscription and unlock premium features.
-• To Improve the App: We analyze usage data to fix issues and improve features.
-• To Improve Our AI Models (if applicable): Your content (prompts/images) may be used, anonymized where possible, to improve our AI models. You can opt out of this in the app's settings.
+• We Do Not Train Models On Your Content: Your photos are sent to third-party AI providers solely to produce your result. We do not use your images to train or improve any AI model of our own.
 
 3. HOW WE SHARE YOUR INFORMATION
 
 We do not sell your personal information. We only share it in these ways:
 
-• Third-Party AI Providers: To generate images, your prompts and/or images are sent to third-party AI service providers.
-• Advertising Partners: Ad network partners may receive your advertising identifier and usage data to serve and measure ads.
+• Third-Party AI Providers: To generate images, your images are sent to third-party AI service providers.
+• Advertising Partners: Ad network partners may receive your advertising identifier to serve and measure ads.
 • App Store Platforms: Google Play Store / Apple App Store process your subscription payments and share limited purchase confirmation data with us.
 • Legal Requirements: We may disclose information if required by law or a valid request from a public authority.
 
@@ -62,7 +59,6 @@ We use reasonable security measures to protect your data, though no method of tr
 • Delete Your Content: Delete uploaded or generated images directly within the app at any time.
 • Manage Ad Personalization: You can limit interest-based ads through your device's advertising settings (e.g., "Opt out of Ads Personalization" on Android, or "Limit Ad Tracking" on iOS).
 • Manage Your Subscription: Subscriptions can be viewed, changed, or cancelled through your Google Play Store / Apple App Store account settings.
-• Opt Out of AI Training: You can choose not to have your content used for AI model training via the app's settings.
 • Data Removal Requests: Since the app does not require an account, we hold minimal data tied to you. If you'd like any device- or purchase-linked data removed, contact us using the details below.
 
 6. CHILDREN'S PRIVACY

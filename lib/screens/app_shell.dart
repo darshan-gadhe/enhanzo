@@ -34,6 +34,9 @@ class AppShell extends ConsumerWidget {
     // Same idea for ads: initialize Meta Audience Network now, so the first
     // ad a user reaches doesn't pay for that setup itself.
     ref.watch(adsBootstrapProvider);
+    // Clears saved edits past their retention window. Nothing on screen
+    // depends on the result; it just needs to run once per launch.
+    ref.watch(editsMaintenanceProvider);
 
     // Back should exit the app only from the Home tab with nothing layered on
     // top of it. Anywhere else there's somewhere to retreat to first.

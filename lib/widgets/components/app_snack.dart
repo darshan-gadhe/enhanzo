@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../theme/theme.dart';
@@ -84,25 +86,46 @@ class AppSnack {
   /// history.remove(id);
   /// undo('Edit deleted', actionLabel: 'Undo', onAction: () => history.restore(entry, index));
   /// ```
+  /// [onExpired] fires once the snackbar closes *without* the undo being
+  /// taken — the moment the removal becomes final. It is what lets a caller
+  /// defer the irreversible half of a delete (unlinking files, say) until the
+  /// user has actually let it stand, rather than doing it up front and having
+  /// nothing to restore.
   static void Function(
     String message, {
     required String actionLabel,
     required VoidCallback onAction,
   })
-  undoable(BuildContext context, {bool overlay = false}) {
+  undoable(
+    BuildContext context, {
+    bool overlay = false,
+    VoidCallback? onExpired,
+  }) {
     final show = _defer(context, overlay: overlay);
-    return (message, {required actionLabel, required onAction}) => show(
-      message,
-      SnackBarAction(label: actionLabel, onPressed: onAction),
-    );
+    return (message, {required actionLabel, required onAction}) {
+      final controller = show(
+        message,
+        SnackBarAction(label: actionLabel, onPressed: onAction),
+      );
+      if (onExpired == null) return;
+      unawaited(
+        controller.closed.then((reason) {
+          // `action` means Undo was pressed, so the delete never happened.
+          // Every other reason — timeout, swipe, another snackbar replacing
+          // this one — means it stands.
+          if (reason != SnackBarClosedReason.action) onExpired();
+        }),
+      );
+    };
   }
 
   /// Reads everything context-dependent up front and returns the presenter both
   /// deferred forms share.
-  static void Function(String message, SnackBarAction? action) _defer(
-    BuildContext context, {
-    required bool overlay,
-  }) {
+  static ScaffoldFeatureController<SnackBar, SnackBarClosedReason> Function(
+    String message,
+    SnackBarAction? action,
+  )
+  _defer(BuildContext context, {required bool overlay}) {
     final messenger = ScaffoldMessenger.of(context);
     final bottomInset = MediaQuery.of(context).padding.bottom;
     final lift = overlay
@@ -110,21 +133,20 @@ class AppSnack {
         : bottomInset + AppSizing.navBarHeight + _clearance;
 
     return (message, action) {
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(message),
-            behavior: SnackBarBehavior.floating,
-            action: action,
-            margin: EdgeInsets.fromLTRB(
-              AppSpacing.x16,
-              0,
-              AppSpacing.x16,
-              lift,
-            ),
+      messenger.hideCurrentSnackBar();
+      return messenger.showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          action: action,
+          margin: EdgeInsets.fromLTRB(
+            AppSpacing.x16,
+            0,
+            AppSpacing.x16,
+            lift,
           ),
-        );
+        ),
+      );
     };
   }
 }
