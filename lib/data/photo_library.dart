@@ -43,13 +43,13 @@ class PhotoLibrary {
 
   static String _messageFor(Object error, PhotoSource source) {
     final text = error.toString().toLowerCase();
+    // Covers the platform's `camera_access_denied` too — that string contains
+    // "denied", and [source] already decides which message to show, so a
+    // separate branch for it was unreachable.
     if (text.contains('permission') || text.contains('denied')) {
       return source == PhotoSource.camera
           ? '${AppInfo.shortName} needs camera access to take a photo.'
           : '${AppInfo.shortName} needs photo access to open your library.';
-    }
-    if (text.contains('camera_access_denied')) {
-      return '${AppInfo.shortName} needs camera access to take a photo.';
     }
     return "That photo couldn't be opened. Try another one.";
   }
