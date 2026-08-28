@@ -5,10 +5,11 @@
 /// at all, and both Google Play and the subscription stores expect these to be
 /// genuinely reachable from inside the product.
 ///
-/// **Play Console separately requires a publicly hosted privacy-policy URL**
-/// for the store listing itself, which an in-app copy does not satisfy. The
-/// same text is mirrored at `store/privacy-policy.md` and `store/terms-of-use.md`
-/// for publishing somewhere public; keep the two in step if either changes.
+/// **Play Console and RevenueCat's paywall footer both need publicly hosted
+/// URLs**, which an in-app copy cannot satisfy. Run
+/// `dart run tool/build_legal.dart` after editing this file to regenerate the
+/// publishable copies in `store/`, so the hosted pages and what the app shows
+/// can never drift apart.
 class Legal {
   Legal._();
 
@@ -110,7 +111,7 @@ We may limit or suspend access if the App is used in these ways.
 
 5. ADVERTISING
 
-The free version of the App shows ads, including ads you may choose to watch in exchange for a feature unlock. Watching an ad is always optional, and a premium subscription removes ads.
+The free version of the App shows occasional full-screen ads between actions — for example after an edit is saved. A premium subscription removes them.
 
 6. AI OUTPUT
 

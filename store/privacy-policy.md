@@ -1,9 +1,6 @@
 # Privacy Policy — Enhanzo: AI Photo Enhancer
 
-> Host this page publicly and paste its URL into Play Console →
-> App content → Privacy policy. Google requires a reachable URL there;
-> the in-app copy (Settings → Privacy Policy) does not satisfy it.
-> Source of truth is `lib/data/legal.dart` — keep both in step.
+> Source of truth is `lib/data/legal.dart`.
 
 Effective Date: $effectiveDate
 

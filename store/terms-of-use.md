@@ -1,7 +1,6 @@
 # Terms of Use — Enhanzo: AI Photo Enhancer
 
-> Mirrors the in-app copy shown at Settings → Terms of Use.
-> Source of truth is `lib/data/legal.dart` — keep both in step.
+> Source of truth is `lib/data/legal.dart`.
 
 Effective Date: $effectiveDate
 
@@ -38,7 +37,7 @@ We may limit or suspend access if the App is used in these ways.
 
 5. ADVERTISING
 
-The free version of the App shows ads, including ads you may choose to watch in exchange for a feature unlock. Watching an ad is always optional, and a premium subscription removes ads.
+The free version of the App shows occasional full-screen ads between actions — for example after an edit is saved. A premium subscription removes them.
 
 6. AI OUTPUT
 
