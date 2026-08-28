@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 /// Where the app's inference requests go, and what they authenticate with.
 ///
 /// Two ways to reach a model, chosen by which defines are set. Both come from
@@ -85,4 +87,28 @@ class ReplicateConfig {
 
   /// Absolute URL for an API path such as `/v1/predictions`.
   static Uri endpoint(String path) => Uri.parse('$baseUrl$path');
+
+  /// Stops a release build that has no credentials from ever reaching a user.
+  ///
+  /// `--dart-define` values are compile-time and vanish **silently** when the
+  /// flag is forgotten: `flutter build appbundle --release` succeeds, produces
+  /// a signed, uploadable bundle, and the app it installs cannot enhance a
+  /// single photo — the one thing it exists to do. That has already shipped
+  /// once, and nothing in the build output hinted at it.
+  ///
+  /// Throwing here converts that silent, uploadable failure into a loud one at
+  /// startup, so a build without credentials cannot be tested, signed or
+  /// uploaded without someone noticing immediately.
+  ///
+  /// Release only. Debug and profile builds are left alone so the app still
+  /// runs its simulated pipeline for UI work without credentials.
+  static void assertConfigured() {
+    if (!kReleaseMode || isConfigured) return;
+    throw StateError(
+      'Release build has no Replicate credentials. '
+      'REPLICATE_PROXY_URL (or REPLICATE_API_TOKEN) was not compiled in — '
+      'rebuild with: flutter build appbundle --release '
+      '--dart-define-from-file=.env',
+    );
+  }
 }

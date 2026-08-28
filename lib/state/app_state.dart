@@ -382,13 +382,23 @@ class FlowController extends Notifier<FlowState> {
       return;
     }
     if (!ReplicateConfig.isConfigured) {
-      // Names the exact command, because the fix is a relaunch: defines are
-      // compile-time, so no amount of retrying inside this build can succeed.
-      fail(
-        'This build has no Replicate credentials, so it can\'t enhance your '
-        'own photos. Relaunch with:\n\n'
-        'flutter run --dart-define-from-file=.env',
-      );
+      // Unreachable in anything shipped: ReplicateConfig.assertConfigured()
+      // fails a release build before it can be uploaded. This path survives
+      // for debug runs launched without `--dart-define-from-file=.env`.
+      //
+      // The wording is deliberately aimed at a *user*, not a developer. It
+      // used to read "Relaunch with: flutter run --dart-define-from-file=.env",
+      // which is meaningless to someone who installed the app from Play and
+      // reads as the app being broken. The actionable detail goes to the log
+      // instead, where the developer will actually see it.
+      assert(() {
+        debugPrint(
+          'Enhance blocked: no Replicate credentials compiled into this '
+          'build. Relaunch with --dart-define-from-file=.env',
+        );
+        return true;
+      }());
+      fail("Enhancing isn't available right now. Please try again later.");
       return;
     }
     if (!RealEsrgan.supports(state.displayTool)) {

@@ -1,4 +1,5 @@
 import java.io.FileInputStream
+import java.util.Base64
 import java.util.Properties
 
 plugins {
@@ -82,6 +83,48 @@ android {
                 "proguard-rules.pro",
             )
         }
+    }
+}
+
+// Fail a release build that was compiled without --dart-define-from-file=.env.
+//
+// Those defines are compile-time. Omitting the flag still produces a signed,
+// uploadable bundle whose app cannot enhance a single photo — and exactly that
+// bundle was installed once, showing users an error where the product should
+// have been. Nothing in the build output hinted at it.
+//
+// Flutter forwards the defines to Gradle as the `dart-defines` property, a
+// comma-separated list of base64 `KEY=VALUE` pairs, so the build can check for
+// itself that the credentials it needs are actually present. Release tasks
+// only: debug and profile are meant to run credential-free on the simulated
+// pipeline.
+gradle.taskGraph.whenReady {
+    val buildingRelease = allTasks.any { task ->
+        task.project == project &&
+            task.name.contains("Release") &&
+            (task.name.startsWith("assemble") || task.name.startsWith("bundle"))
+    }
+    if (!buildingRelease) return@whenReady
+
+    val defines = (project.findProperty("dart-defines") as String?)
+        ?.split(",")
+        ?.mapNotNull { encoded ->
+            runCatching { String(Base64.getDecoder().decode(encoded)) }
+                .getOrNull()
+        }
+        ?: emptyList()
+
+    fun supplied(key: String) = defines.any {
+        it.startsWith("$key=") && it.substringAfter("=").isNotEmpty()
+    }
+
+    if (!supplied("REPLICATE_PROXY_URL") && !supplied("REPLICATE_API_TOKEN")) {
+        throw GradleException(
+            "Release build is missing Replicate credentials.\n" +
+                "REPLICATE_PROXY_URL (or REPLICATE_API_TOKEN) was not compiled in, " +
+                "so the app would install and run but could not enhance any photo.\n" +
+                "Rebuild with: flutter build appbundle --release --dart-define-from-file=.env"
+        )
     }
 }
 
