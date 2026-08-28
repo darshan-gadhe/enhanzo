@@ -88,16 +88,3 @@ android {
 flutter {
     source = "../.."
 }
-
-dependencies {
-    // Meta Audience Network, declared explicitly so app-level Kotlin can use
-    // `com.facebook.ads.RewardedInterstitialAd` directly.
-    //
-    // The easy_audience_network plugin already pulls this in transitively,
-    // but it only wraps `RewardedVideoAd` — it has no binding for the
-    // rewarded *interstitial* format at all. That format is bridged by
-    // MetaRewardedInterstitial.kt instead, which needs the SDK on this
-    // module's own compile classpath. Version matches the plugin's pin so
-    // there is exactly one copy of the SDK on the classpath.
-    implementation("com.facebook.android:audience-network-sdk:6.17.0")
-}

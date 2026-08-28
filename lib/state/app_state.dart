@@ -657,7 +657,22 @@ class EntitlementController extends Notifier<Entitlement> {
   /// reads whatever it already knows. Subscribing first means a change that
   /// lands between "configured" and "first read" is never missed.
   Future<void> _bootstrap() async {
-    await RevenueCatService.ensureConfigured();
+    try {
+      await RevenueCatService.ensureConfigured();
+    } catch (_) {
+      // Configuring RevenueCat is a platform-channel call and can fail for
+      // reasons that have nothing to do with this app — a native init error,
+      // an OEM-restricted process, a malformed key. [build] deliberately does
+      // not await this method, so an error escaping here becomes an unhandled
+      // Future rejection: invisible, and it would leave the CustomerInfo
+      // listener below unregistered so Pro status could never resolve even
+      // once the SDK recovered.
+      //
+      // Bailing out explicitly keeps [state] at its not-Pro default, which is
+      // the safe direction to fail: a subscriber briefly sees the free tier,
+      // rather than a non-subscriber being handed Pro.
+      return;
+    }
     if (_disposed) return;
 
     void onUpdate(CustomerInfo info) {

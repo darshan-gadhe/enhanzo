@@ -19,17 +19,19 @@ order.
 Check these off before either store submission; each one *will* cause a
 rejection or a broken listing, not just a suboptimal one.
 
-- [ ] **Live privacy policy URL.** `AppInfo.link` is `https://enhanzo.app` —
-      currently a placeholder domain, not a real page. Both stores require a
-      *functional* privacy policy link (Apple: App Store Connect "Privacy
-      Policy URL" field, required by Guideline 3.1.2 for subscription apps
-      specifically; Google: Play Console "Privacy policy" field, required for
-      every app). No live URL, no submission.
-- [ ] **Real support contact.** `support@enhanzo.app` is a placeholder. Both
-      consoles require a working support contact (email or URL).
-- [ ] **App icon.** The project still ships Flutter's default icon —
-      `flutter_launcher_icons` isn't configured. See "App Icon" below for the
-      spec; once you have the mark (from the logo-prompt work earlier), say
+- [ ] **Hosted privacy policy URL.** The policy text itself is done and shown
+      in-app (Settings -> Privacy Policy), and publishable copies are generated
+      at `store/privacy-policy.html` / `store/terms-of-use.html` by
+      `dart run tool/build_legal.dart`. What is still missing is somewhere
+      public to host them: Play Console's "Privacy policy" field requires a
+      reachable URL, and an in-app copy does not satisfy it. The same URLs are
+      what RevenueCat's paywall footer links need. No live URL, no submission.
+- [x] **Real support contact.** `AppInfo.supportEmail` is
+      `itechcoderdev@gmail.com`, and the same address is given in the Privacy
+      Policy and Terms.
+- [x] **App icon.** Real launcher icons are committed across all seven
+      density buckets and verified present in the release bundle. See
+      "App Icon" below for the spec; once you have the mark, say
       the word and I'll wire the generator so both platforms' full icon sets
       come from one source file.
 - [ ] **Real screenshots.** Nothing below is a generated image — it's the
