@@ -219,23 +219,53 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     }
   }
 
-  /// Opens RevenueCat's paywall, or its Customer Center once the user is Pro.
+  /// Opens RevenueCat's paywall, or its Customer Center once the user is
+  /// premium.
   ///
   /// Reports a presentation failure rather than swallowing it: without this
   /// the upgrade card is a dead tap whenever no paywall is published for the
   /// current offering, or this build has no RevenueCat key.
+  ///
+  /// Whatever the user did in there, the entitlement is re-read on the way
+  /// out. RevenueCat's `CustomerInfo` listener normally reports a purchase on
+  /// its own, but it is only listening if configuring the SDK succeeded during
+  /// startup — and the paywall configures it again itself, so the SDK can end
+  /// up usable but unwatched. Asking [EntitlementController.refresh]
+  /// directly closes that gap: the badge below flips as soon as this returns,
+  /// not on the next launch.
   Future<void> _openSubscription(BuildContext context, bool isPro) async {
+    final entitlements = ref.read(entitlementProvider.notifier);
+
     if (isPro) {
       await showCustomerCenter();
+      // A cancellation or a plan change made in there changes what the user
+      // owns, and this screen is what they come back to.
+      await entitlements.refresh();
       return;
     }
+
     final outcome = await showPaywall();
+    if (outcome == PaywallResult.purchased ||
+        outcome == PaywallResult.restored) {
+      await entitlements.refresh();
+    }
     if (!context.mounted) return;
-    if (outcome == PaywallResult.error) {
-      AppSnack.show(
-        context,
-        "Couldn't open subscriptions right now. Please try again.",
-      );
+    switch (outcome) {
+      case PaywallResult.purchased:
+        HapticFeedback.selectionClick();
+        AppSnack.show(context, "You're Premium — every tool is unlocked.");
+      case PaywallResult.restored:
+        AppSnack.show(context, 'Purchases restored. Premium is active.');
+      case PaywallResult.error:
+        AppSnack.show(
+          context,
+          "Couldn't open subscriptions right now. Please try again.",
+        );
+      // Dismissed without buying, or never shown. Nothing happened, so
+      // nothing to say.
+      case PaywallResult.cancelled:
+      case PaywallResult.notPresented:
+        break;
     }
   }
 
@@ -246,7 +276,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     switch (outcome) {
       case PurchaseOutcome.success:
         HapticFeedback.selectionClick();
-        AppSnack.show(context, 'Purchases restored. Pro is active.');
+        AppSnack.show(context, 'Purchases restored. Premium is active.');
       case PurchaseOutcome.noneFound:
         AppSnack.show(context, 'No previous purchases found.');
       case PurchaseOutcome.failed:
@@ -310,8 +340,8 @@ class _ProfileHeader extends StatelessWidget {
           duration: context.motion(AppDurations.quick),
           child: isPro
               ? AppPill.label(
-                  '✨ PRO MEMBER',
-                  key: const ValueKey('pro'),
+                  '✨ PREMIUM USER',
+                  key: const ValueKey('premium'),
                   color: p.accent,
                   textStyle: AppText.badge(p.onAccent),
                   padding: const EdgeInsets.symmetric(
@@ -319,8 +349,8 @@ class _ProfileHeader extends StatelessWidget {
                     vertical: AppSpacing.x6,
                   ),
                 )
-              // Nothing under the title for free users — the Pro badge is
-              // the only status worth stating here.
+              // Nothing under the title for free users — an active
+              // subscription is the only status worth stating here.
               : const SizedBox.shrink(key: ValueKey('free')),
         ),
       ],

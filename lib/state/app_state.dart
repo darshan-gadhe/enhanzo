@@ -4,14 +4,13 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:purchases_flutter/purchases_flutter.dart';
 
 import '../data/edits_store.dart';
 import '../data/replicate/enhance_job.dart';
 import '../data/replicate/real_esrgan.dart';
 import '../data/replicate/replicate_client.dart';
 import '../data/replicate/replicate_config.dart';
-import '../data/revenuecat/revenuecat_service.dart';
+import '../data/revenuecat/entitlement_source.dart';
 import '../data/theme_store.dart';
 import '../models/models.dart';
 import '../widgets/demo_image.dart';
@@ -638,68 +637,103 @@ class Entitlement {
 /// inside RevenueCat's own paywall, which never routes back through here.
 enum PurchaseOutcome { success, noneFound, busy, failed }
 
-/// Owns the Pro entitlement — backed by RevenueCat, which is itself the
+/// Where premium status comes from. Overridden in tests with a fake store; in
+/// the app it is always RevenueCat.
+final entitlementSourceProvider = Provider<EntitlementSource>((ref) {
+  final source = RevenueCatEntitlementSource();
+  ref.onDispose(source.stopListening);
+  return source;
+});
+
+/// Owns the premium entitlement — backed by RevenueCat, which is itself the
 /// system of record for the purchase (Play Billing underneath it), not a
 /// value this app stores and trusts on its own. There is
 /// deliberately no local cache of `isPro` written by this app: on every
 /// launch, and on every change RevenueCat's backend detects — a renewal, an
 /// expiry, a cancellation, a refund, a purchase made on another device — the
-/// [CustomerInfo] listener registered in [_bootstrap] is what updates
-/// [state], so Pro status can never drift from what was actually bought.
+/// listener registered in [_connect] is what updates [state], so premium
+/// status can never drift from what was actually bought.
+///
+/// Two paths keep it current, and they are deliberately redundant:
+///
+///  * the store listener, which covers changes this app never initiated; and
+///  * [refresh], an explicit re-read the UI calls the moment RevenueCat's
+///    paywall reports a completed purchase.
+///
+/// The second exists because the first can be missing exactly when it matters.
+/// If configuring RevenueCat failed while the app was starting — a native init
+/// error, an OEM-restricted process — no listener was ever registered, and the
+/// paywall's own `ensureConfigured` can succeed later and leave the SDK usable
+/// but unwatched. A user in that state would pay and stay on the free tier
+/// until the next relaunch. [refresh] re-attempts the subscription and re-reads
+/// the entitlement, so a purchase lands immediately either way.
 class EntitlementController extends Notifier<Entitlement> {
   bool _disposed = false;
-  void Function(CustomerInfo)? _listener;
+
+  /// Whether the store listener is actually registered. Not "did we try" —
+  /// a failed attempt must stay retryable, which is the whole point of it.
+  bool _listening = false;
+
+  late final EntitlementSource _source;
 
   @override
   Entitlement build() {
+    _source = ref.watch(entitlementSourceProvider);
     ref.onDispose(() {
       _disposed = true;
-      final listener = _listener;
-      if (listener != null) {
-        RevenueCatService.removeCustomerInfoListener(listener);
-      }
+      _source.stopListening();
+      _listening = false;
     });
-    _bootstrap();
+    // Not awaited: the first frame renders on the not-premium default and
+    // corrects itself as soon as the store answers. This is also the whole of
+    // the relaunch path — nothing is read from disk, so a subscriber is
+    // premium again on the next launch because RevenueCat says so.
+    refresh();
     return const Entitlement();
   }
 
-  /// Configures RevenueCat, subscribes to future entitlement changes, then
-  /// reads whatever it already knows. Subscribing first means a change that
-  /// lands between "configured" and "first read" is never missed.
-  Future<void> _bootstrap() async {
+  void _apply(bool isPremium) {
+    if (_disposed) return;
+    state = state.copyWith(isPro: isPremium);
+  }
+
+  /// Configures the store SDK and subscribes to it. Idempotent once it has
+  /// succeeded; retried on every [refresh] until then.
+  Future<void> _connect() async {
+    if (_listening) return;
     try {
-      await RevenueCatService.ensureConfigured();
+      await _source.connect();
     } catch (_) {
-      // Configuring RevenueCat is a platform-channel call and can fail for
-      // reasons that have nothing to do with this app — a native init error,
-      // an OEM-restricted process, a malformed key. [build] deliberately does
-      // not await this method, so an error escaping here becomes an unhandled
-      // Future rejection: invisible, and it would leave the CustomerInfo
-      // listener below unregistered so Pro status could never resolve even
-      // once the SDK recovered.
-      //
-      // Bailing out explicitly keeps [state] at its not-Pro default, which is
-      // the safe direction to fail: a subscriber briefly sees the free tier,
-      // rather than a non-subscriber being handed Pro.
+      // Connecting is a platform-channel call and can fail for reasons that
+      // have nothing to do with this app. Bailing out leaves [state] at its
+      // not-premium default, which is the safe direction to fail: a subscriber
+      // briefly sees the free tier, rather than a non-subscriber being handed
+      // premium. The next [refresh] tries again.
       return;
     }
+    if (_disposed || !_source.isReady) return;
+    _source.listen(_apply);
+    _listening = true;
+  }
+
+  /// Re-reads premium status from the store and publishes it.
+  ///
+  /// Called on launch, and again by Settings the moment RevenueCat's paywall
+  /// reports a purchase or a restore — so the UI flips without waiting on a
+  /// stream callback that may never have been subscribed. Never throws: a
+  /// store that cannot answer leaves the last known state alone.
+  Future<void> refresh() async {
+    await _connect();
     if (_disposed) return;
-
-    void onUpdate(CustomerInfo info) {
-      if (_disposed) return;
-      state = state.copyWith(isPro: RevenueCatService.isPro(info));
-    }
-
-    _listener = onUpdate;
-    RevenueCatService.addCustomerInfoListener(onUpdate);
-
+    // Never read from a store that isn't up. RevenueCat's native layer aborts
+    // the process rather than returning an error when it is called before it
+    // is configured — a crash no Dart `catch` below could contain.
+    if (!_source.isReady) return;
     try {
-      final info = await RevenueCatService.getCustomerInfo();
-      if (!_disposed) onUpdate(info);
+      _apply(await _source.readIsPremium());
     } catch (_) {
-      // No CustomerInfo available yet — most commonly because this build has
-      // no RevenueCat key for its mode. State stays at its not-Pro default;
-      // the listener above still fires if that changes.
+      // No answer available — most commonly because this build has no
+      // RevenueCat key. The listener above still fires if that changes.
     }
   }
 
@@ -708,15 +742,24 @@ class EntitlementController extends Notifier<Entitlement> {
   ///
   /// The only purchase-path method left here. Buying goes through
   /// RevenueCat's paywall (`lib/widgets/paywall.dart`), which reports its own
-  /// result and reaches [state] through the `CustomerInfo` listener above
+  /// result and reaches [state] through [refresh] and the store listener
   /// rather than through this controller.
   Future<PurchaseOutcome> restore() async {
     if (state.restoring) return PurchaseOutcome.busy;
 
     state = state.copyWith(restoring: true);
+    await _connect();
+    if (_disposed) return PurchaseOutcome.failed;
+    if (!_source.isReady) {
+      // Same reason as [refresh]: an unconfigured store must not be called.
+      // Reported as a failure rather than "nothing found", which would tell a
+      // real subscriber their purchase is gone.
+      state = state.copyWith(restoring: false);
+      return PurchaseOutcome.failed;
+    }
+
     try {
-      final info = await RevenueCatService.restorePurchases();
-      final isPro = RevenueCatService.isPro(info);
+      final isPro = await _source.restore();
       if (!_disposed) {
         state = state.copyWith(isPro: isPro, restoring: false);
       }
