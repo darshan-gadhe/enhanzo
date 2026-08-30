@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/edits_store.dart';
+import '../data/image_ops.dart';
 import '../data/replicate/enhance_job.dart';
 import '../data/replicate/real_esrgan.dart';
 import '../data/replicate/replicate_client.dart';
@@ -133,6 +134,14 @@ class FlowState {
   final bool toolPreset;
 
   /// The frame chosen on the crop step, carried through to the result.
+  ///
+  /// Defaults to [CropRatio.free] — the photo's own shape, nothing removed.
+  /// It used to default to `portrait` (3:4), which meant a user who uploaded a
+  /// landscape photo and never touched the crop chips had the sides of it
+  /// centre-cropped away before it ever reached the model: an automatic crop,
+  /// on the assumption that whatever matters sits in the middle. Nothing in
+  /// this app knows where the subject is, so the only safe default is to keep
+  /// the whole frame and let the user crop if they want to.
   final CropRatio cropRatio;
 
   const FlowState({
@@ -141,7 +150,7 @@ class FlowState {
     this.progress = 0,
     this.comparePos = 56,
     this.toolPreset = false,
-    this.cropRatio = CropRatio.portrait,
+    this.cropRatio = CropRatio.free,
     this.photo,
     this.photoAspect,
     this.source,
@@ -496,6 +505,10 @@ class FlowController extends Notifier<FlowState> {
   }
 
   static String _messageFor(Object error) {
+    // Already user-facing by construction: [ImagePreparationException] and
+    // [ReplicateException] both carry text written for a person, and
+    // [ModelErrors] is what stands between the model's own wording and this.
+    if (error is ImagePreparationException) return error.message;
     if (error is ReplicateException) return error.message;
     if (error is StateError) return error.message;
     return 'Something went wrong while enhancing this photo.';

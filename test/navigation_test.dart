@@ -106,8 +106,10 @@ void main() {
     final flow = c.read(flowProvider.notifier);
 
     flow.pickTool('AI Enhance');
-    // Defaults to the portrait frame the canvas has always used.
-    expect(c.read(flowProvider).cropRatio, CropRatio.portrait);
+    // Defaults to the photo's own shape. Anything else would crop a user's
+    // photo before they asked for it — see FlowState.cropRatio.
+    expect(c.read(flowProvider).cropRatio, CropRatio.free);
+    expect(CropRatio.free.value, isNull, reason: 'free must not crop');
 
     flow.setCropRatio(CropRatio.wide);
     flow.cropNext();

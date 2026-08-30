@@ -5,7 +5,9 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
+import '../image_ops.dart';
 import 'device_id.dart';
+import 'model_errors.dart';
 import 'replicate_config.dart';
 
 /// A failed call to Replicate, carrying a message fit to show a user.
@@ -123,12 +125,31 @@ class ReplicateClient {
     };
   }
 
-  /// Uploads [file] and returns the URL a model input can be pointed at.
+  /// Uploads [image] and returns the URL a model input can be pointed at.
   ///
   /// Predictions take image inputs as URLs, and a photo on a phone has none.
   /// Replicate's Files API is the supported way across that gap — better than
   /// inlining a multi-megabyte photo as a base64 data URI on every run.
-  Future<Uri> uploadImage(File file) async {
+  ///
+  /// Takes a [PreparedImage] rather than a [File] on purpose. This is the one
+  /// place in the app where image bytes leave the device, and a `File`
+  /// parameter would accept anything — the picked photo at full resolution, a
+  /// preview, a half-finished temp file. Requiring the type that only
+  /// [ImageOps.prepareForUpload] can produce makes "the uploaded file is the
+  /// prepared file" a fact about what compiles, not a rule someone has to keep
+  /// in mind at each new call site.
+  Future<Uri> uploadImage(PreparedImage image) async {
+    // The budget is re-checked against the payload's own measurements rather
+    // than trusted from earlier in the call: this is the last point before the
+    // bytes go out.
+    if (!image.isWithinBudget) {
+      throw const ReplicateException(
+        "This photo couldn't be prepared for enhancement. "
+        'Please try another image.',
+      );
+    }
+
+    final file = image.file;
     final request = http.MultipartRequest(
       'POST',
       ReplicateConfig.endpoint('/v1/files'),
@@ -292,11 +313,12 @@ class ReplicateClient {
     }
 
     if (response.statusCode >= 400) {
+      // The API's own `detail` names the real problem far better than a status
+      // code can, but it is written for a developer — so it is translated
+      // rather than shown. [ModelErrors] keeps the raw text in the debug log.
       final detail = json?['detail'] ?? json?['title'];
       throw ReplicateException(
-        detail is String && detail.isNotEmpty
-            ? detail
-            : 'The server returned ${response.statusCode}.',
+        ModelErrors.friendly(detail is String ? detail : null),
         statusCode: response.statusCode,
       );
     }

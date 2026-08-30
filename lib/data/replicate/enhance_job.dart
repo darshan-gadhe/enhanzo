@@ -3,6 +3,7 @@ import 'dart:io';
 
 import '../edits_store.dart';
 import '../image_ops.dart';
+import 'model_errors.dart';
 import 'real_esrgan.dart';
 import 'replicate_client.dart';
 
@@ -115,15 +116,20 @@ class EnhanceJob {
       onPhase(EnhancePhase.preparing);
       final dir = await EditsStore.directory();
       final stamp = DateTime.now().millisecondsSinceEpoch;
-      final source = await ImageOps.cropToRatio(
+      // The one preparation step, for every tool: crop to the chosen frame and
+      // fit the result inside the model's GPU budget. Its output is the only
+      // thing [ReplicateClient.uploadImage] will accept, so there is no path
+      // from here to the network that skips it.
+      final prepared = await ImageOps.prepareForUpload(
         photo,
         aspectRatio: aspectRatio,
-        targetPath: '${dir.path}/${stamp}_source.png',
+        targetPathWithoutExtension: '${dir.path}/${stamp}_source',
       );
+      final source = prepared.file;
       _throwIfCancelled();
 
       onPhase(EnhancePhase.uploading);
-      final uploaded = await _client.uploadImage(source);
+      final uploaded = await _client.uploadImage(prepared);
       _throwIfCancelled();
 
       onPhase(EnhancePhase.queued);
@@ -154,12 +160,11 @@ class EnhanceJob {
 
       if (prediction.isCanceled) throw const EnhanceCancelled();
       if (prediction.isFailed) {
-        final detail = prediction.error;
-        throw ReplicateException(
-          detail == null || detail.isEmpty
-              ? "The model couldn't finish this photo."
-              : detail,
-        );
+        // Never the model's own words. `prediction.error` is written for
+        // whoever deployed the model — it has named GPU memory limits and
+        // tensor shapes at users — so it is translated here and logged raw
+        // only in debug.
+        throw ReplicateException(ModelErrors.friendly(prediction.error));
       }
       final outputUrl = prediction.outputUrl;
       if (outputUrl == null) {

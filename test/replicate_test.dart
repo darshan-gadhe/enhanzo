@@ -8,19 +8,19 @@
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' as ui;
 
+import 'package:ai_enhancer/data/image_budget.dart';
+import 'package:ai_enhancer/data/image_ops.dart';
 import 'package:ai_enhancer/data/replicate/enhance_job.dart';
+import 'package:ai_enhancer/data/replicate/model_errors.dart';
 import 'package:ai_enhancer/data/replicate/real_esrgan.dart';
 import 'package:ai_enhancer/data/replicate/replicate_client.dart';
+import 'package:flutter/painting.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-
-/// The image bytes stood in for a photo. Deliberately not a decodable image:
-/// `ImageOps.cropToRatio` is documented to hand back the original when it
-/// can't decode, which is exactly the path a test should be able to rely on.
-final _sourceBytes = Uint8List.fromList(List<int>.filled(64, 7));
 
 /// What the model "returns".
 final _resultBytes = Uint8List.fromList(List<int>.filled(128, 42));
@@ -52,9 +52,25 @@ void main() {
     if (sandbox.existsSync()) await sandbox.delete(recursive: true);
   });
 
-  Future<File> writePhoto() async {
-    final file = File('${sandbox.path}/photo.jpg');
-    await file.writeAsBytes(_sourceBytes);
+  /// A real, decodable photo. It has to be real: the job now refuses to upload
+  /// anything whose size it could not measure, which is the whole point of the
+  /// preparation layer. [width] and [height] default to something already
+  /// inside the budget so tests that are about the network are not also about
+  /// resizing.
+  Future<File> writePhoto({int width = 800, int height = 600}) async {
+    final recorder = ui.PictureRecorder();
+    Canvas(recorder).drawRect(
+      Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble()),
+      Paint()..color = const Color(0xFF2A6FDB),
+    );
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(width, height);
+    picture.dispose();
+    final data = await image.toByteData(format: ui.ImageByteFormat.png);
+    image.dispose();
+
+    final file = File('${sandbox.path}/photo.png');
+    await file.writeAsBytes(data!.buffer.asUint8List(), flush: true);
     return file;
   }
 
@@ -178,7 +194,7 @@ void main() {
       expect(phases, contains(EnhancePhase.downloading));
     });
 
-    test('a failed prediction surfaces the model\'s own reason', () async {
+    test('a failed prediction never shows the model\'s own words', () async {
       final client = ReplicateClient(
         httpClient: MockClient((request) async {
           if (request.url.path == '/v1/files') {
@@ -208,16 +224,105 @@ void main() {
           client: client,
         ).run(),
         throwsA(
-          isA<ReplicateException>().having(
-            (e) => e.message,
-            'message',
-            'CUDA out of memory',
-          ),
+          isA<ReplicateException>()
+              // Translated, not relayed. "CUDA out of memory" told a user
+              // holding a phone nothing they could act on.
+              .having((e) => e.message, 'message', ModelErrors.tooLarge)
+              .having((e) => e.message, 'message', isNot(contains('CUDA')))
+              .having((e) => e.message, 'message', isNot(contains('memory'))),
         ),
       );
     });
 
-    test('an API error is reported with the service\'s own detail', () async {
+    test('the reported GPU failure is translated, not relayed', () async {
+      // The exact string the live model returned.
+      const raw =
+          'Input image of dimensions (1536, 1536, 4) has a total number of '
+          'pixels 2359296 greater than the max size that fits in GPU memory '
+          'on this hardware, 2096704. Resize input image and try again.';
+
+      final client = ReplicateClient(
+        httpClient: MockClient((request) async {
+          if (request.url.path == '/v1/files') {
+            return http.Response(
+              jsonEncode({
+                'urls': {'get': 'https://api.replicate.com/v1/files/f'},
+              }),
+              201,
+            );
+          }
+          return http.Response(
+            jsonEncode({'id': 'p', 'status': 'failed', 'error': raw}),
+            201,
+          );
+        }),
+      );
+
+      await expectLater(
+        EnhanceJob(
+          photo: await writePhoto(),
+          tool: 'AI Enhance',
+          aspectRatio: null,
+          client: client,
+        ).run(),
+        throwsA(isA<ReplicateException>().having(
+          (e) => e.message,
+          'message',
+          ModelErrors.tooLarge,
+        )),
+      );
+    });
+
+    test('the file that is uploaded is the prepared one', () async {
+      // A photo well past the budget, so preparation must change it.
+      Uint8List? uploaded;
+      final client = ReplicateClient(
+        httpClient: MockClient((request) async {
+          if (request.url.path == '/v1/files') {
+            uploaded = request.bodyBytes;
+            return http.Response(
+              jsonEncode({
+                'urls': {'get': 'https://api.replicate.com/v1/files/f'},
+              }),
+              201,
+            );
+          }
+          return http.Response(
+            jsonEncode({'id': 'p', 'status': 'failed', 'error': 'stop here'}),
+            201,
+          );
+        }),
+      );
+
+      final photo = await writePhoto(width: 1536, height: 1536);
+      await expectLater(
+        EnhanceJob(
+          photo: photo,
+          tool: 'AI Enhance',
+          aspectRatio: null,
+          client: client,
+        ).run(),
+        throwsA(isA<ReplicateException>()),
+      );
+
+      // The multipart body carries the payload; the original PNG appears
+      // nowhere in it.
+      final original = await photo.readAsBytes();
+      expect(uploaded, isNotNull);
+      expect(uploaded!.length, lessThan(original.length + 4096));
+
+      // And the source the outcome would have shown really is downscaled.
+      final prepared = await ImageOps.prepareForUpload(
+        photo,
+        aspectRatio: null,
+        targetPathWithoutExtension: '${sandbox.path}/check',
+      );
+      expect(prepared.pixelCount,
+          lessThanOrEqualTo(ImageBudget.maxSafePixels));
+      expect(prepared.width, lessThan(1536));
+    });
+
+    test('an API error is reported in words a user can act on', () async {
       final client = ReplicateClient(
         httpClient: MockClient(
           (_) async => http.Response(
@@ -236,7 +341,11 @@ void main() {
         ).run(),
         throwsA(
           isA<ReplicateException>()
-              .having((e) => e.message, 'message', contains('insufficient'))
+              // The service says "You have insufficient credit." — true, and
+              // meaningless to whoever is holding the phone.
+              .having((e) => e.message, 'message', isNot(contains('credit')))
+              .having((e) => e.message, 'message',
+                  contains('temporarily unavailable'))
               .having((e) => e.statusCode, 'statusCode', 402),
         ),
       );
