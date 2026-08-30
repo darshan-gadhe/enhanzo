@@ -44,13 +44,25 @@ class InterstitialAdService {
   /// later interstitial.
   static const Duration _loadTimeout = Duration(seconds: 30);
 
-  /// Shortest gap allowed between two interstitials.
+  /// Default shortest gap between two interstitials.
   ///
   /// Without one, an interstitial fired on *every* saved edit — so a user
   /// working through a batch of photos met a full-screen ad each time. Both
   /// Meta's and Play's policies treat that frequency as a bad-experience
   /// signal, and it is the sort of thing that gets a placement throttled
   /// rather than earning more.
+  ///
+  /// The free-enhancement boundary now passes [Duration.zero] instead, and the
+  /// reason is worth stating: a free user gets three enhancements in the
+  /// lifetime of the install, so there can be at most three interstitials —
+  /// ever. The batch this interval was written to prevent cannot happen any
+  /// more, because the allowance is itself the frequency cap, and leaving a
+  /// three-minute gap in place would silently drop the second and third ad of
+  /// the only three the app will ever get. [_busy] remains the guard against
+  /// two ads from one boundary; this is only about spacing.
+  ///
+  /// It stays as the default so any *other* call site is spaced by default and
+  /// has to opt out deliberately.
   static const Duration minInterval = Duration(minutes: 3);
 
   /// True while an interstitial is loading or on screen — so a caller can
@@ -62,24 +74,54 @@ class InterstitialAdService {
   /// Pulled out as pure logic so the rule is testable on its own, without a
   /// platform channel or a real ad in the way.
   @visibleForTesting
-  static bool isWithinCooldown(DateTime? lastShownAt, DateTime now) {
+  static bool isWithinCooldown(
+    DateTime? lastShownAt,
+    DateTime now, {
+    Duration interval = minInterval,
+  }) {
     if (lastShownAt == null) return false;
-    return now.difference(lastShownAt) < minInterval;
+    if (interval == Duration.zero) return false;
+    return now.difference(lastShownAt) < interval;
   }
+
+  /// How many times [showInterstitial] has been entered this process.
+  ///
+  /// Test-only, and it earns its place: "a premium user costs zero ad
+  /// requests" is a claim about what the app *doesn't* do, and the only way to
+  /// check it is to count. Incremented on entry, before any early return, so
+  /// even a request that is refused is counted as having been made.
+  @visibleForTesting
+  static int attempts = 0;
 
   /// Clears the cooldown. Tests only — the app never needs it.
   @visibleForTesting
   static void resetCooldownForTest() => _lastShownAt = null;
 
+  /// Returns the service to its start-of-process state. Tests only.
+  @visibleForTesting
+  static void resetForTest() {
+    attempts = 0;
+    _lastShownAt = null;
+    _busy = false;
+  }
+
   /// Shows an interstitial, resolving when it is dismissed or when it turns
   /// out it can't be shown at all. Never throws.
-  static Future<InterstitialOutcome> showInterstitial() async {
+  ///
+  /// [cooldown] overrides [minInterval] for this attempt — see that constant
+  /// for why the free-enhancement boundary passes [Duration.zero].
+  static Future<InterstitialOutcome> showInterstitial({
+    Duration cooldown = minInterval,
+  }) async {
+    attempts++;
     if (!AdConfig.isSupportedPlatform ||
         !AdConfig.isInterstitialConfigured) {
       return InterstitialOutcome.unavailable;
     }
+    // The true duplicate guard, independent of any interval: one attempt at a
+    // time, so a double tap or a repeated callback cannot put two ads up.
     if (_busy) return InterstitialOutcome.unavailable;
-    if (isWithinCooldown(_lastShownAt, DateTime.now())) {
+    if (isWithinCooldown(_lastShownAt, DateTime.now(), interval: cooldown)) {
       return InterstitialOutcome.suppressed;
     }
     _busy = true;

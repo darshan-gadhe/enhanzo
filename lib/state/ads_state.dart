@@ -2,6 +2,7 @@ import 'package:easy_audience_network/easy_audience_network.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/ads/ad_config.dart';
+import '../data/ads/interstitial_ad_service.dart';
 
 /// Initializes Meta Audience Network once per process. Watched eagerly from
 /// [AppShell] (the same way [entitlementProvider] is), so the SDK is ready
@@ -38,3 +39,28 @@ final adsBootstrapProvider = FutureProvider<void>((ref) async {
     // having succeeded.
   }
 });
+
+
+/// The app's only ad boundary: one interstitial after a free user's
+/// enhancement has completed and been saved.
+///
+/// **A premium user costs zero ad requests.** The check is here, before the
+/// service is entered, so nothing is loaded, requested, or counted against the
+/// placement on their behalf — which is what "no ad requests" has to mean to
+/// be worth saying.
+///
+/// [Duration.zero] rather than the service's default three-minute spacing: a
+/// free user gets [AccessState.freeLimit] enhancements for the life of the
+/// install, so this can fire at most that many times, ever. The allowance is
+/// the frequency cap; the interval would only silently drop the second and
+/// third of the three. See [InterstitialAdService.minInterval].
+///
+/// Never throws, and the caller never waits on it: no fill, no network, a
+/// failed SDK init and an unconfigured placement all resolve to
+/// [InterstitialOutcome.unavailable], which is a no-op by design.
+Future<InterstitialOutcome> showBoundaryInterstitial({
+  required bool isPremium,
+}) async {
+  if (isPremium) return InterstitialOutcome.unavailable;
+  return InterstitialAdService.showInterstitial(cooldown: Duration.zero);
+}

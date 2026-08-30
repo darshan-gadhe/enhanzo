@@ -15,6 +15,7 @@ import '../data/revenuecat/entitlement_source.dart';
 import '../data/theme_store.dart';
 import '../models/models.dart';
 import '../widgets/demo_image.dart';
+import 'access_state.dart';
 
 /// Top-level navigation destinations (the persistent tabs + paywall).
 ///
@@ -133,6 +134,14 @@ class FlowState {
   /// returning to a picker the user never passed through would invent a step.
   final bool toolPreset;
 
+  /// True when a run was refused because the free allowance is spent.
+  ///
+  /// Not a failure message but a request for the paywall: [EditFlowOverlay]
+  /// watches it and presents RevenueCat's paywall. Cleared by
+  /// [FlowController.upgradeOffered] once that has happened, so it is a single
+  /// edge rather than a condition the overlay could re-fire on.
+  final bool needsUpgrade;
+
   /// The frame chosen on the crop step, carried through to the result.
   ///
   /// Defaults to [CropRatio.free] — the photo's own shape, nothing removed.
@@ -150,6 +159,7 @@ class FlowState {
     this.progress = 0,
     this.comparePos = 56,
     this.toolPreset = false,
+    this.needsUpgrade = false,
     this.cropRatio = CropRatio.free,
     this.photo,
     this.photoAspect,
@@ -181,6 +191,7 @@ class FlowState {
     double? progress,
     double? comparePos,
     bool? toolPreset,
+    bool? needsUpgrade,
     CropRatio? cropRatio,
     File? photo,
     double? photoAspect,
@@ -199,6 +210,7 @@ class FlowState {
       progress: progress ?? this.progress,
       comparePos: comparePos ?? this.comparePos,
       toolPreset: toolPreset ?? this.toolPreset,
+      needsUpgrade: needsUpgrade ?? this.needsUpgrade,
       cropRatio: cropRatio ?? this.cropRatio,
       photo: photo ?? this.photo,
       photoAspect: photoAspect ?? this.photoAspect,
@@ -358,6 +370,19 @@ class FlowController extends Notifier<FlowState> {
   /// restarts processing.
   void retry() => _beginProcessing();
 
+  /// Acknowledges that the paywall has been shown for [FlowState.needsUpgrade],
+  /// so the overlay does not present it a second time for the same refusal.
+  void upgradeOffered() {
+    if (!state.needsUpgrade) return;
+    state = state.copyWith(needsUpgrade: false);
+  }
+
+  /// What a free user is told when their allowance is gone. Stated as a fact
+  /// about the plan rather than as an error, because nothing failed.
+  static const String freeLimitMessage =
+      "You've used all ${AccessState.freeLimit} free enhancements. "
+      'Upgrade for unlimited edits and no ads.';
+
   /// Moves a running job to the [EditFlow.error] step, carrying [message] to
   /// the screen so a failure says what went wrong rather than only that
   /// something did.
@@ -383,6 +408,22 @@ class FlowController extends Notifier<FlowState> {
     );
 
     final photo = state.photo;
+    // The one place a real run is authorised. The enhance button does not
+    // decide this for itself — it just asks to start, and this refuses — so a
+    // future entry point cannot spend a Replicate request by forgetting to
+    // check. Nothing is uploaded, no prediction is created, no ad is
+    // requested and no allowance is spent: the flow asks for the paywall
+    // instead (see FlowState.needsUpgrade).
+    if (photo != null && !ref.read(accessProvider).canGenerate) {
+      _stopProgressTimer();
+      state = state.copyWith(
+        step: EditFlow.error,
+        clearRun: true,
+        failure: freeLimitMessage,
+        needsUpgrade: true,
+      );
+      return;
+    }
     if (photo == null) {
       // Nothing was uploaded, so there is nothing to send: the demo run on the
       // tool's own imagery is all this can honestly be.
@@ -447,6 +488,13 @@ class FlowController extends Notifier<FlowState> {
         outputLabel: outcome.preset.label,
         phase: EnhancePhase.done,
       );
+      // The allowance is spent here and nowhere else: the model has run, the
+      // result is downloaded and on screen, and Replicate has already been
+      // billed for it. Every failure path — a cancel, a preparation failure,
+      // an upload failure, a model error, a timeout — returns above without
+      // reaching this line, so none of them costs the user a free
+      // enhancement.
+      unawaited(ref.read(accessProvider.notifier).consumeFreeGeneration());
     } on EnhanceCancelled {
       // The user moved on; `back`/`close` already set the step they wanted.
     } catch (error) {

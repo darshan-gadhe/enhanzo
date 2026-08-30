@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../state/access_state.dart';
 import '../state/ads_state.dart';
 import '../state/app_state.dart';
 import '../theme/theme.dart';
 import '../widgets/bottom_nav.dart';
+import '../widgets/paywall.dart';
 import 'flow/edit_flow.dart';
 import 'history_screen.dart';
 import 'home_screen.dart';
@@ -16,11 +20,47 @@ import 'profile_screen.dart';
 /// Everything here lives in one [Stack] rather than on the [Navigator], so the
 /// system back gesture has nothing to pop — this widget translates it into the
 /// right in-app retreat instead (see [_handleBack]).
-class AppShell extends ConsumerWidget {
+class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends ConsumerState<AppShell> {
+  /// Guards against presenting the first-launch paywall twice while the first
+  /// presentation is still resolving — the stored flag is only written once
+  /// the native sheet has actually been asked for.
+  bool _offeringOnboarding = false;
+
+  /// Offers the subscription once, on a brand-new install.
+  ///
+  /// Deliberately not a blocking gate. Closing it leaves a fully usable app
+  /// with three free enhancements, and if RevenueCat has no offering to show —
+  /// no network on first launch, no published paywall — [showPaywall] reports
+  /// an error and the user simply lands on Home. Nothing here promises a trial:
+  /// the trial badge, the price and the eligibility all come from RevenueCat's
+  /// own hosted paywall, which reads them from Google Play.
+  ///
+  /// Marked seen whatever the outcome, so it is offered once and never nags.
+  Future<void> _offerOnboardingPaywall() async {
+    if (_offeringOnboarding) return;
+    _offeringOnboarding = true;
+    final access = ref.read(accessProvider.notifier);
+    try {
+      await access.markOnboardingSeen();
+      final outcome = await showPaywall();
+      if (outcome == PaywallResult.purchased ||
+          outcome == PaywallResult.restored) {
+        await ref.read(entitlementProvider.notifier).refresh();
+      }
+    } finally {
+      _offeringOnboarding = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final screen = ref.watch(screenProvider);
     final showNav = ref.watch(showNavProvider);
     final flowActive = ref.watch(flowProvider.select((s) => s.step != null));
@@ -37,6 +77,22 @@ class AppShell extends ConsumerWidget {
     // Clears saved edits past their retention window. Nothing on screen
     // depends on the result; it just needs to run once per launch.
     ref.watch(editsMaintenanceProvider);
+    // The free allowance and the first-launch state, restored from disk. Both
+    // are read here because this is the widget that outlives every screen.
+    ref.watch(accessProvider);
+
+    // A brand-new install is offered the subscription once, after the stored
+    // state has been read — so a returning user is never mistaken for a new
+    // one by a slow disk, and someone who already pays is never sold to.
+    if (ref.read(accessProvider.notifier).shouldOfferOnboarding &&
+        !_offeringOnboarding) {
+      // Out of build: presenting a native modal during layout is not safe.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (!ref.read(accessProvider.notifier).shouldOfferOnboarding) return;
+        unawaited(_offerOnboardingPaywall());
+      });
+    }
 
     // Back should exit the app only from the Home tab with nothing layered on
     // top of it. Anywhere else there's somewhere to retreat to first.

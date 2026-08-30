@@ -4,14 +4,15 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/ads/interstitial_ad_service.dart';
 import '../../data/catalog.dart';
 import '../../models/models.dart';
+import '../../state/ads_state.dart';
 import '../../state/app_state.dart';
 import '../../theme/theme.dart';
 import '../../widgets/components/components.dart';
 import '../../widgets/demo_image.dart';
 import '../../widgets/edit_image.dart';
+import '../../widgets/paywall.dart';
 import '../../widgets/share_sheet.dart';
 import 'photo_source_sheet.dart';
 
@@ -19,16 +20,52 @@ import 'photo_source_sheet.dart';
 ///
 /// Deliberately placed at a task *boundary*, not inside one: this fires once
 /// the edit is already saved to History and the flow has closed, so it never
-/// interrupts work in progress and nothing the user did is waiting on it.
-/// That is also what Meta's and Play's policies ask for — a full-screen ad
-/// between activities rather than across one.
+/// interrupts selection, cropping, uploading or the model run, and nothing the
+/// user did is waiting on it. That is also what Meta's and Play's policies ask
+/// for — a full-screen ad between activities rather than across one.
 ///
-/// Fire-and-forget by design: no-fill, no network or an unconfigured
-/// placement all resolve to "nothing happens", which is the correct outcome
-/// for an ad that was never owed to anyone.
+/// **A premium user costs zero ad requests.** The check is before the call,
+/// not inside it, so nothing is loaded, requested or initialised on their
+/// behalf.
+///
+/// [Duration.zero] rather than the default three-minute spacing: a free user
+/// gets three enhancements for the life of the install, so this can fire at
+/// most three times ever, and the default would silently drop two of them. See
+/// [InterstitialAdService.minInterval].
+///
+/// Fire-and-forget by design: no fill, no network or an unconfigured placement
+/// all resolve to "nothing happens", which is the correct outcome for an ad
+/// that was never owed to anyone. The user is never waiting on it.
 void _maybeShowInterstitial(WidgetRef ref) {
-  if (ref.read(entitlementProvider).isPro) return;
-  unawaited(InterstitialAdService.showInterstitial());
+  unawaited(
+    showBoundaryInterstitial(isPremium: ref.read(entitlementProvider).isPro),
+  );
+}
+
+/// Presents RevenueCat's paywall when a run was refused for want of a
+/// subscription, and resumes the run if one is bought.
+///
+/// The refusal itself happens in [FlowController], before anything is
+/// uploaded — this is only the door that opens afterwards.
+Future<void> _offerUpgrade(WidgetRef ref) async {
+  final flow = ref.read(flowProvider.notifier);
+  // Clear the signal first: presenting is the response to it, and the overlay
+  // must not fire again while the paywall is on screen.
+  flow.upgradeOffered();
+
+  final outcome = await showPaywall();
+  if (outcome != PaywallResult.purchased &&
+      outcome != PaywallResult.restored) {
+    // Cancelled, or nothing could be presented. The user stays free and, since
+    // no run started, no allowance was spent.
+    return;
+  }
+
+  await ref.read(entitlementProvider.notifier).refresh();
+  if (!ref.read(entitlementProvider).isPro) return;
+  // Premium now: the photo they were trying to enhance is still loaded, so
+  // pick up where the refusal interrupted them.
+  ref.read(flowProvider.notifier).retry();
 }
 
 /// Full-screen modal overlay that renders the current [EditFlow] step.
@@ -37,6 +74,16 @@ class EditFlowOverlay extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // A run refused for want of a subscription asks for the paywall here.
+    // Listening rather than watching: this is an edge, and presenting a native
+    // modal is not something to do from a build.
+    ref.listen<bool>(
+      flowProvider.select((s) => s.needsUpgrade),
+      (was, now) {
+        if (now) unawaited(_offerUpgrade(ref));
+      },
+    );
+
     final step = ref.watch(flowProvider.select((s) => s.step));
     switch (step) {
       case EditFlow.crop:
