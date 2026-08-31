@@ -48,10 +48,26 @@ class _AppShellState extends ConsumerState<AppShell> {
     _offeringOnboarding = true;
     final access = ref.read(accessProvider.notifier);
     try {
-      await access.markOnboardingSeen();
       final outcome = await showPaywall();
+
+      if (outcome == PaywallResult.error) {
+        // It never appeared — no network on first launch, no offering loaded,
+        // no paywall published. That is not an offer, so it must not be
+        // recorded as one: marking it seen here silently cost a new user the
+        // trial on the single launch it was meant for. The next launch tries
+        // again, a bounded number of times.
+        await access.recordOnboardingFailure();
+        return;
+      }
+
+      // Presented. Whatever the user did with it — bought, or closed it and
+      // carried on free — they have been offered, and are not offered again.
+      await access.markOnboardingSeen();
+
       if (outcome == PaywallResult.purchased ||
           outcome == PaywallResult.restored) {
+        // Don't wait on RevenueCat's CustomerInfo stream: re-read now, so
+        // premium is in effect by the time the paywall finishes dismissing.
         await ref.read(entitlementProvider.notifier).refresh();
       }
     } finally {

@@ -21,6 +21,13 @@ class FakeStore implements EntitlementSource {
   /// Makes [readIsPremium] and [restore] throw.
   bool readFails;
 
+  /// How long the store takes to answer.
+  ///
+  /// Real RevenueCat is a network round-trip while local storage is a disk
+  /// read, and the gap between them is where a reinstalling subscriber used to
+  /// look like a brand-new user. Tests that care about that ordering set this.
+  Duration answerDelay;
+
   /// Whether [connect] has succeeded. The controller keys its subscription
   /// off this, exactly as the RevenueCat implementation does.
   bool _ready = false;
@@ -34,6 +41,7 @@ class FakeStore implements EntitlementSource {
     this.premium = false,
     this.connectFails = false,
     this.readFails = false,
+    this.answerDelay = Duration.zero,
   });
 
   bool get isListening => _listener != null;
@@ -48,6 +56,7 @@ class FakeStore implements EntitlementSource {
   @override
   Future<void> connect() async {
     connectCalls++;
+    if (answerDelay > Duration.zero) await Future<void>.delayed(answerDelay);
     if (connectFails) throw StateError('native init failed');
     _ready = true;
   }
@@ -58,6 +67,7 @@ class FakeStore implements EntitlementSource {
   @override
   Future<bool> readIsPremium() async {
     readCalls++;
+    if (answerDelay > Duration.zero) await Future<void>.delayed(answerDelay);
     // Mirrors RevenueCatService: calling an unconfigured store is an error,
     // not a "false".
     if (!_ready) throw StateError('not configured');

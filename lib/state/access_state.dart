@@ -17,14 +17,24 @@ class AccessState {
   /// Whether the first-launch paywall has already been offered.
   final bool onboardingSeen;
 
+  /// Launches that tried to present it and could not.
+  final int onboardingTries;
+
   /// RevenueCat's answer, mirrored here so one object answers "may this run".
   final bool isPremium;
+
+  /// Whether RevenueCat has actually answered. See [Entitlement.resolved] —
+  /// without it a reinstalling subscriber is indistinguishable from a new user
+  /// for as long as the store takes to reply.
+  final bool premiumKnown;
 
   const AccessState({
     this.freeUsed = 0,
     this.loaded = false,
     this.onboardingSeen = false,
+    this.onboardingTries = 0,
     this.isPremium = false,
+    this.premiumKnown = false,
   });
 
   /// Free enhancements a new install gets before the paywall.
@@ -53,13 +63,17 @@ class AccessState {
     int? freeUsed,
     bool? loaded,
     bool? onboardingSeen,
+    int? onboardingTries,
     bool? isPremium,
+    bool? premiumKnown,
   }) {
     return AccessState(
       freeUsed: freeUsed ?? this.freeUsed,
       loaded: loaded ?? this.loaded,
       onboardingSeen: onboardingSeen ?? this.onboardingSeen,
+      onboardingTries: onboardingTries ?? this.onboardingTries,
       isPremium: isPremium ?? this.isPremium,
+      premiumKnown: premiumKnown ?? this.premiumKnown,
     );
   }
 }
@@ -99,26 +113,34 @@ class AccessController extends Notifier<AccessState> {
     // to false, and left a user who had subscribed and then expired unable to
     // enhance anything at all. The entitlement is a value to follow, not a
     // reason to rebuild.
-    ref.listen(entitlementProvider.select((e) => e.isPro), (_, isPremium) {
+    ref.listen(entitlementProvider, (_, entitlement) {
       if (_disposed) return;
-      state = state.copyWith(isPremium: isPremium);
+      state = state.copyWith(
+        isPremium: entitlement.isPro,
+        premiumKnown: entitlement.resolved,
+      );
     });
 
     // Whatever it is right now; the listener above carries it from here.
-    final isPremium = ref.read(entitlementProvider).isPro;
+    final entitlement = ref.read(entitlementProvider);
     _restore();
-    return AccessState(isPremium: isPremium);
+    return AccessState(
+      isPremium: entitlement.isPro,
+      premiumKnown: entitlement.resolved,
+    );
   }
 
   Future<void> _restore() async {
     final used = await AccessStore.readFreeUsed();
     final seen = await AccessStore.readOnboardingSeen();
+    final tries = await AccessStore.readOnboardingTries();
     if (_disposed) return;
     state = state.copyWith(
       // A storage failure counts as exhausted rather than fresh.
       freeUsed: used ?? AccessState.freeLimit,
       loaded: true,
       onboardingSeen: seen,
+      onboardingTries: tries,
     );
   }
 
@@ -145,21 +167,47 @@ class AccessController extends Notifier<AccessState> {
     }
   }
 
-  /// Records that the first-launch paywall has been offered, so it is never
-  /// offered automatically again.
+  /// Records that the first-launch paywall was actually presented, so it is
+  /// never offered automatically again.
+  ///
+  /// Call this only when the paywall really appeared. A presentation that
+  /// failed was not an offer, and marking it seen would quietly cost a new
+  /// user the trial they were meant to be shown — see [recordOnboardingFailure].
   Future<void> markOnboardingSeen() async {
     if (state.onboardingSeen) return;
     if (!_disposed) state = state.copyWith(onboardingSeen: true);
     await AccessStore.writeOnboardingSeen();
   }
 
+  /// Records that a presentation was attempted and did not appear.
+  ///
+  /// The next launch tries again, up to [AccessStore.maxOnboardingTries], after
+  /// which it is treated as seen: a configuration that never works must not
+  /// open a paywall on every launch forever.
+  Future<void> recordOnboardingFailure() async {
+    final tries = state.onboardingTries + 1;
+    if (!_disposed) state = state.copyWith(onboardingTries: tries);
+    await AccessStore.writeOnboardingTries(tries);
+    if (tries >= AccessStore.maxOnboardingTries) await markOnboardingSeen();
+  }
+
   /// Whether the first-launch paywall should be presented right now.
   ///
   /// Only on a brand-new install, only once, and never to someone who has
-  /// already paid. Waits for [loaded] so a slow storage read cannot make a
-  /// returning user look new.
+  /// already paid.
+  ///
+  /// Waits on *both* answers, and the second one is the one that was missing.
+  /// [loaded] is a local disk read that lands in about a millisecond;
+  /// [premiumKnown] is a network round-trip to RevenueCat. A subscriber who
+  /// reinstalls has no local flag and looks brand new, so deciding before the
+  /// store replies sold a subscription to someone who already had one — the
+  /// exact thing this must never do.
   bool get shouldOfferOnboarding =>
-      state.loaded && !state.onboardingSeen && !state.isPremium;
+      state.loaded &&
+      state.premiumKnown &&
+      !state.onboardingSeen &&
+      state.onboardingTries < AccessStore.maxOnboardingTries &&
+      !state.isPremium;
 
   /// Test seam: restores the in-memory view from storage. The app never needs
   /// it — [build] does this once per launch.

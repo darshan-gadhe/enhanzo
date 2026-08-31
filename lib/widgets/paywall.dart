@@ -1,5 +1,6 @@
 import 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
 
+import '../data/revenuecat/offering_diagnostics.dart';
 import '../data/revenuecat/revenuecat_service.dart';
 
 export 'package:purchases_ui_flutter/purchases_ui_flutter.dart'
@@ -28,6 +29,12 @@ Future<PaywallResult> showPaywall() async {
   // native SDK, the same crash [RevenueCatService] guards every other call
   // against.
   if (!RevenueCatService.isReady) return PaywallResult.error;
+
+  // Debug only: prints the offering the paywall is about to draw — packages,
+  // prices, and whether Play is actually exposing a free trial. The app renders
+  // none of that itself, so this is the only way to tell a misconfigured offer
+  // from a paywall faithfully showing what it was given.
+  await OfferingDiagnostics.log();
 
   try {
     return await RevenueCatUI.presentPaywall(displayCloseButton: true);

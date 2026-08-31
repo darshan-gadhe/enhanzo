@@ -32,6 +32,7 @@ class AccessStore {
   /// silently reinterpret an old number.
   static const String _usedKey = 'free_generations_used_v1';
   static const String _onboardingKey = 'onboarding_paywall_seen_v1';
+  static const String _onboardingTriesKey = 'onboarding_paywall_tries_v1';
 
   /// How many free enhancements have been spent, or null if storage could not
   /// answer.
@@ -77,4 +78,33 @@ class AccessStore {
       // defaulting to "seen" when storage is broken outright.
     }
   }
+
+  /// How many launches have tried and failed to *present* the paywall.
+  ///
+  /// Separate from [readOnboardingSeen] because a paywall that could not be
+  /// shown was not seen. Marking it seen on a failed presentation — no network
+  /// on first launch, offerings not loaded yet — meant a brand-new user was
+  /// silently never offered the trial at all, on the one launch it was meant
+  /// for. This lets the next launch try again, a bounded number of times, so
+  /// a permanently broken configuration still cannot nag forever.
+  static Future<int> readOnboardingTries() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getInt(_onboardingTriesKey) ?? 0;
+    } catch (_) {
+      return maxOnboardingTries;
+    }
+  }
+
+  static Future<void> writeOnboardingTries(int value) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_onboardingTriesKey, value);
+    } catch (_) {
+      // Non-critical: the cap is a courtesy, not a correctness property.
+    }
+  }
+
+  /// Launches on which a failed presentation may be retried before giving up.
+  static const int maxOnboardingTries = 3;
 }

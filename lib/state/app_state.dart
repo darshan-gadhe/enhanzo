@@ -699,12 +699,32 @@ class Entitlement {
   final bool isPro;
   final bool restoring;
 
-  const Entitlement({this.isPro = false, this.restoring = false});
+  /// Whether the store has actually answered yet.
+  ///
+  /// [isPro] starts false, and false is also what a real non-subscriber looks
+  /// like — so without this there is no way to tell "not premium" from "we
+  /// haven't asked yet". That difference decides whether a brand-new install
+  /// is shown the trial paywall: reading local storage takes a millisecond and
+  /// asking RevenueCat takes a network round-trip, so a *subscriber
+  /// reinstalling the app* looked exactly like a new user for that whole
+  /// window, and got sold a subscription they already own.
+  ///
+  /// Becomes true when the store gives a definite answer, and also when it
+  /// becomes clear it never will (no key in this build, a failed connect) —
+  /// otherwise an unreachable store would block onboarding forever.
+  final bool resolved;
 
-  Entitlement copyWith({bool? isPro, bool? restoring}) {
+  const Entitlement({
+    this.isPro = false,
+    this.restoring = false,
+    this.resolved = false,
+  });
+
+  Entitlement copyWith({bool? isPro, bool? restoring, bool? resolved}) {
     return Entitlement(
       isPro: isPro ?? this.isPro,
       restoring: restoring ?? this.restoring,
+      resolved: resolved ?? this.resolved,
     );
   }
 }
@@ -772,7 +792,13 @@ class EntitlementController extends Notifier<Entitlement> {
 
   void _apply(bool isPremium) {
     if (_disposed) return;
-    state = state.copyWith(isPro: isPremium);
+    state = state.copyWith(isPro: isPremium, resolved: true);
+  }
+
+  /// Records that the question has been settled, however it was settled.
+  void _resolve() {
+    if (_disposed || state.resolved) return;
+    state = state.copyWith(resolved: true);
   }
 
   /// Configures the store SDK and subscribes to it. Idempotent once it has
@@ -806,12 +832,17 @@ class EntitlementController extends Notifier<Entitlement> {
     // Never read from a store that isn't up. RevenueCat's native layer aborts
     // the process rather than returning an error when it is called before it
     // is configured — a crash no Dart `catch` below could contain.
-    if (!_source.isReady) return;
+    if (!_source.isReady) {
+      // Settled: this build cannot ask, so waiting longer changes nothing.
+      _resolve();
+      return;
+    }
     try {
       _apply(await _source.readIsPremium());
     } catch (_) {
-      // No answer available — most commonly because this build has no
-      // RevenueCat key. The listener above still fires if that changes.
+      // No answer available. Settled the same way: the listener above still
+      // fires if that ever changes, but nothing should block on it.
+      _resolve();
     }
   }
 
@@ -839,7 +870,11 @@ class EntitlementController extends Notifier<Entitlement> {
     try {
       final isPro = await _source.restore();
       if (!_disposed) {
-        state = state.copyWith(isPro: isPro, restoring: false);
+        state = state.copyWith(
+          isPro: isPro,
+          restoring: false,
+          resolved: true,
+        );
       }
       return isPro ? PurchaseOutcome.success : PurchaseOutcome.noneFound;
     } catch (_) {
