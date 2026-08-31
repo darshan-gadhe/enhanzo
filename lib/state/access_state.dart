@@ -85,10 +85,27 @@ class AccessController extends Notifier<AccessState> {
 
   @override
   AccessState build() {
+    // Re-armed on every build. A rebuild reuses this same instance and fires
+    // the *previous* build's onDispose, so a latched flag would stay true for
+    // the rest of the session and freeze the controller — every later
+    // `if (_disposed) return` would fire, the restore would never complete,
+    // and `canGenerate` would be false forever.
+    _disposed = false;
     ref.onDispose(() => _disposed = true);
-    // Not `read`: premium status arrives asynchronously and can change at any
-    // time, and this must follow it.
-    final isPremium = ref.watch(entitlementProvider.select((e) => e.isPro));
+
+    // `listen`, not `watch`. Watching rebuilds this notifier every time
+    // premium status changes — which is exactly when it must not start over:
+    // the rebuild threw away the counter just read from disk, reset `loaded`
+    // to false, and left a user who had subscribed and then expired unable to
+    // enhance anything at all. The entitlement is a value to follow, not a
+    // reason to rebuild.
+    ref.listen(entitlementProvider.select((e) => e.isPro), (_, isPremium) {
+      if (_disposed) return;
+      state = state.copyWith(isPremium: isPremium);
+    });
+
+    // Whatever it is right now; the listener above carries it from here.
+    final isPremium = ref.read(entitlementProvider).isPro;
     _restore();
     return AccessState(isPremium: isPremium);
   }

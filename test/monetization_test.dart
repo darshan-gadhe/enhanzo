@@ -291,6 +291,12 @@ void main() {
       await pumpEventQueue();
 
       expect(c.read(accessProvider).isPremium, isFalse);
+      // For the right reason: the counter is loaded and says 3, not because
+      // the controller lost track of itself. Without this the assertion below
+      // passed while `loaded` was false, which is a different bug wearing the
+      // same result.
+      expect(c.read(accessProvider).loaded, isTrue);
+      expect(c.read(accessProvider).freeUsed, 3);
       expect(c.read(accessProvider).canGenerate, isFalse,
           reason: 'an expired subscriber returns to the free tier they left');
     });
@@ -476,6 +482,71 @@ void main() {
       expect(c.read(flowProvider).needsUpgrade, isFalse);
       expect(c.read(flowProvider).failure,
           isNot(FlowController.freeLimitMessage));
+    });
+  });
+
+  group('an entitlement change does not reset the free tier', () {
+    // AccessController used to `watch` the entitlement, so every premium
+    // change rebuilt it. The rebuild fired the previous build's onDispose,
+    // which latched its disposed flag, so the restore that followed returned
+    // early and `loaded` never became true again — leaving a free user unable
+    // to enhance anything for the rest of the session.
+
+    test('the counter survives a subscribe and an expiry', () async {
+      final store = FakeStore(premium: false);
+      final c = makeContainer(store);
+      await boot(c);
+      await succeed(c);
+      expect(c.read(accessProvider).freeUsed, 1);
+
+      store.pushUpdate(true);
+      await pumpEventQueue();
+      expect(c.read(accessProvider).isPremium, isTrue);
+      expect(c.read(accessProvider).loaded, isTrue,
+          reason: 'the restored state must not be thrown away');
+      expect(c.read(accessProvider).freeUsed, 1);
+
+      store.pushUpdate(false);
+      await pumpEventQueue();
+      final state = c.read(accessProvider);
+      expect(state.isPremium, isFalse);
+      expect(state.loaded, isTrue);
+      expect(state.freeUsed, 1, reason: 'and the allowance is where it was');
+      expect(state.canGenerate, isTrue);
+      expect(state.freeRemaining, 2);
+    });
+
+    test('a free user is never left permanently unable to generate', () async {
+      final store = FakeStore(premium: false);
+      final c = makeContainer(store);
+      await boot(c);
+
+      // Several transitions, as a renewal/expiry cycle would produce.
+      for (final premium in [true, false, true, false]) {
+        store.pushUpdate(premium);
+        await pumpEventQueue();
+      }
+
+      expect(c.read(accessProvider).loaded, isTrue);
+      expect(c.read(accessProvider).canGenerate, isTrue);
+      // And it still counts.
+      await succeed(c);
+      expect(c.read(accessProvider).freeUsed, 1);
+    });
+
+    test('onboarding is not re-offered because premium status moved', () async {
+      final store = FakeStore(premium: false);
+      final c = makeContainer(store);
+      await boot(c);
+      await c.read(accessProvider.notifier).markOnboardingSeen();
+
+      store.pushUpdate(true);
+      await pumpEventQueue();
+      store.pushUpdate(false);
+      await pumpEventQueue();
+
+      expect(c.read(accessProvider).onboardingSeen, isTrue);
+      expect(c.read(accessProvider.notifier).shouldOfferOnboarding, isFalse);
     });
   });
 
