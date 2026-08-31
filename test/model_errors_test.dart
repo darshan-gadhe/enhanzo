@@ -96,6 +96,16 @@ void main() {
           contains('another image'));
     });
 
+    test('a safety-checker refusal does not advise a pointless retry', () {
+      // "Try again" is wrong advice: the same photo and prompt will be
+      // refused again. Found when Stable Diffusion's checker rejected an
+      // abstract test image.
+      final message = ModelErrors.friendly('NSFW content detected. Try '
+          'running it again, or try a different prompt.');
+      expect(message, ModelErrors.blocked);
+      expect(message.toLowerCase(), contains('different'));
+    });
+
     test('anything unrecognised falls back to an honest generic', () {
       final message = ModelErrors.friendly('E_UNKNOWN_47');
       expect(message, isNot(contains('E_UNKNOWN_47')));

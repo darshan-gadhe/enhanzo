@@ -105,15 +105,20 @@ void main() {
       );
       // An upscaler cannot cut out a background, so background removal runs on
       // a background remover rather than being mapped onto the upscaler.
-      expect(ToolModels.forTool('Remove BG'), isA<BackgroundRemoverModel>());
-      // And a tool with no model does not pretend to have one.
-      expect(ToolModels.supports('Object Removal'), isFalse);
-      expect(ToolModels.forTool('Object Removal'), isNull);
+      expect(ToolModels.forTool('Remove BG'), isA<BackgroundModel>());
+      // Object removal needs a mask, so it runs on an inpainting model rather
+      // than being mapped onto something that cannot do it.
+      expect(ToolModels.forTool('Object Removal'), isA<InpaintFillModel>());
+      expect(ToolModels.needsFor('Object Removal'), ToolNeeds.mask);
+      // A name that is not a tool still has nothing behind it.
+      expect(ToolModels.supports('Teleport'), isFalse);
+      expect(ToolModels.forTool('Teleport'), isNull);
     });
 
     test('the background remover asks for a transparent PNG', () {
-      final input = const BackgroundRemoverModel()
-          .inputFor(Uri.parse('https://api.replicate.com/v1/files/f'));
+      final input = const BackgroundModel().inputFor(
+        imageUrl: Uri.parse('https://api.replicate.com/v1/files/f'),
+      );
       expect(input, {
         'image': 'https://api.replicate.com/v1/files/f',
         // JPEG cannot carry alpha; asking for it would composite onto black.
@@ -411,7 +416,7 @@ void main() {
       expect(predictionsCreated, 0);
     });
 
-    test('a tool with no model behind it never reaches the network', () async {
+    test('an unknown tool never reaches the network', () async {
       var requests = 0;
       final client = ReplicateClient(
         httpClient: MockClient((_) async {
@@ -423,9 +428,9 @@ void main() {
       await expectLater(
         EnhanceJob(
           photo: await writePhoto(),
-          // Object removal needs a mask the app has no surface for, so it has
-          // no model and is not in the shown catalog.
-          tool: 'Object Removal',
+          // Not a tool at all — every catalog tool now has a model, so this
+          // is what "no model behind it" has to look like.
+          tool: 'Teleport',
           aspectRatio: null,
           client: client,
         ).run(),

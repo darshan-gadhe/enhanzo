@@ -12,7 +12,10 @@ import '../../state/app_state.dart';
 import '../../theme/theme.dart';
 import '../../widgets/components/components.dart';
 import '../../widgets/demo_image.dart';
+import '../../data/replicate/tool_models.dart';
+import '../../models/tool_options.dart';
 import '../../widgets/edit_image.dart';
+import '../../widgets/mask_canvas.dart';
 import '../../widgets/paywall.dart';
 import '../../widgets/share_sheet.dart';
 import 'photo_source_sheet.dart';
@@ -91,6 +94,8 @@ class EditFlowOverlay extends ConsumerWidget {
         return const _CropStep();
       case EditFlow.tool:
         return const _ToolPickStep();
+      case EditFlow.settings:
+        return const _SettingsStep();
       case EditFlow.processing:
         return const _ProcessingStep();
       case EditFlow.result:
@@ -1070,6 +1075,244 @@ class _ExportChipRow extends StatelessWidget {
             activeLabel: p.onAccent,
             inactiveColor: p.secondarySurface,
             inactiveLabel: p.textSecondary,
+          ),
+      ],
+    );
+  }
+}
+
+
+/// Collects whatever a tool needs before it can run: a painted mask, a prompt,
+/// a background choice, a direction to expand in.
+///
+/// One step for every tool rather than one per tool, because what varies is
+/// only which controls appear. Tools that need nothing never reach it — the
+/// flow goes straight from crop to processing, exactly as it always has for
+/// the enhance tools.
+class _SettingsStep extends ConsumerWidget {
+  const _SettingsStep();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = PaletteScope.of(context);
+    final state = ref.watch(flowProvider);
+    final flow = ref.read(flowProvider.notifier);
+    final needs = ToolModels.needsFor(state.displayTool);
+    final ready = flow.settingsComplete;
+
+    return Container(
+      color: p.screenBg,
+      child: Column(
+        children: [
+          _OverlayNavBar(
+            title: state.displayTool,
+            titleColor: p.textPrimary,
+            leading: AppTextButton(
+              label: 'Back',
+              color: p.textSecondary,
+              prominent: false,
+              onTap: flow.back,
+            ),
+            trailing: AppTextButton(
+              label: 'Next',
+              // Disabled until the tool has what it needs, so a run can never
+              // be started that the model would refuse.
+              color: ready ? p.accent : p.textSecondary.withValues(alpha: 0.4),
+              onTap: ready ? flow.settingsNext : () {},
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.screenH,
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    _hintFor(needs, state.displayTool),
+                    textAlign: TextAlign.center,
+                    style: AppText.captionLg(p.textSecondary),
+                  ),
+                  const SizedBox(height: AppSpacing.itemGap),
+                  if (needs == ToolNeeds.mask ||
+                      needs == ToolNeeds.maskAndPrompt)
+                    Expanded(
+                      child: MaskCanvas(
+                        photo: state.photo,
+                        options: state.options,
+                        onChanged: flow.setOptions,
+                      ),
+                    )
+                  else
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: AppRadius.brXl,
+                        child: EditImage(
+                          file: state.photo,
+                          scene: DemoScene.landscape,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: AppSpacing.itemGap),
+                  if (needs == ToolNeeds.maskAndPrompt ||
+                      needs == ToolNeeds.promptAndDirection)
+                    _PromptField(
+                      value: state.options.prompt,
+                      onChanged: (v) =>
+                          flow.setOptions(state.options.copyWith(prompt: v)),
+                    ),
+                  if (needs == ToolNeeds.promptAndDirection)
+                    _ExpandControls(
+                      expansion: state.options.expansion,
+                      onChanged: (e) =>
+                          flow.setOptions(state.options.copyWith(expansion: e)),
+                    ),
+                  if (needs == ToolNeeds.background)
+                    _BackgroundChoices(
+                      selected: state.options.background,
+                      onChanged: (b) => flow
+                          .setOptions(state.options.copyWith(background: b)),
+                    ),
+                  const SizedBox(height: AppSpacing.itemGap),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _hintFor(ToolNeeds needs, String tool) => switch (needs) {
+    ToolNeeds.mask => 'Paint over what you want removed.',
+    ToolNeeds.maskAndPrompt =>
+      'Paint over the area to change, then describe what belongs there.',
+    ToolNeeds.promptAndDirection =>
+      'Choose which way to extend the photo, and describe the new space.',
+    ToolNeeds.background => 'Choose what to put behind your subject.',
+    ToolNeeds.nothing => '',
+  };
+}
+
+class _PromptField extends StatefulWidget {
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  const _PromptField({required this.value, required this.onChanged});
+
+  @override
+  State<_PromptField> createState() => _PromptFieldState();
+}
+
+class _PromptFieldState extends State<_PromptField> {
+  late final TextEditingController _controller =
+      TextEditingController(text: widget.value);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = PaletteScope.of(context);
+    return TextField(
+      controller: _controller,
+      onChanged: widget.onChanged,
+      // The proxy caps this at 500 characters; stopping here means a user is
+      // never told "too long" after waiting for an upload.
+      maxLength: 500,
+      maxLines: 2,
+      minLines: 1,
+      textInputAction: TextInputAction.done,
+      style: AppText.body(p.textPrimary),
+      decoration: InputDecoration(
+        hintText: 'Describe what should be there',
+        hintStyle: AppText.body(p.textSecondary),
+        filled: true,
+        fillColor: p.secondarySurface,
+        counterText: '',
+        border: OutlineInputBorder(
+          borderRadius: AppRadius.brLg,
+          borderSide: BorderSide.none,
+        ),
+      ),
+    );
+  }
+}
+
+/// How far to extend the canvas on each side, in pixels of the prepared photo.
+///
+/// Capped at 512 because that is what the proxy allows: the extents decide the
+/// output resolution, and an unbounded value is an unbounded render.
+class _ExpandControls extends StatelessWidget {
+  final Expansion expansion;
+  final ValueChanged<Expansion> onChanged;
+
+  const _ExpandControls({required this.expansion, required this.onChanged});
+
+  static const int _step = 256;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = PaletteScope.of(context);
+    Widget side(String label, int value, Expansion Function(int) apply) {
+      final on = value > 0;
+      return Expanded(
+        child: AppPressable(
+          onTap: () => onChanged(apply(on ? 0 : _step)),
+          child: Container(
+            margin: const EdgeInsets.all(AppSpacing.x4),
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.x10),
+            decoration: BoxDecoration(
+              color: on ? p.accent : p.secondarySurface,
+              borderRadius: AppRadius.brLg,
+            ),
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: AppText.captionMd(on ? p.onAccent : p.textPrimary),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.innerGap),
+      child: Row(
+        children: [
+          side('Left', expansion.left, (v) => expansion.copyWith(left: v)),
+          side('Up', expansion.up, (v) => expansion.copyWith(up: v)),
+          side('Down', expansion.down, (v) => expansion.copyWith(down: v)),
+          side('Right', expansion.right, (v) => expansion.copyWith(right: v)),
+        ],
+      ),
+    );
+  }
+}
+
+class _BackgroundChoices extends StatelessWidget {
+  final BackgroundStyle selected;
+  final ValueChanged<BackgroundStyle> onChanged;
+
+  const _BackgroundChoices({required this.selected, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = PaletteScope.of(context);
+    return AppChipBar(
+      chips: [
+        for (final style in BackgroundStyle.values)
+          AppChip(
+            label: style.label,
+            active: style == selected,
+            onTap: () => onChanged(style),
+            activeColor: p.accent,
+            activeLabel: p.onAccent,
+            inactiveColor: p.secondarySurface,
+            inactiveLabel: p.textPrimary,
           ),
       ],
     );

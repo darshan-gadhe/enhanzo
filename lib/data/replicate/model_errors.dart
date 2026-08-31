@@ -32,6 +32,11 @@ class ModelErrors {
   static const String tooLarge =
       'This photo is too large to enhance. Please try a smaller photo.';
 
+  /// Shown when the model's own safety checker refuses the run.
+  static const String blocked =
+      'That photo or prompt was blocked by the model. Try a different '
+      'prompt, or a different photo.';
+
   /// [raw] is the model's `error` field, or an API `detail` string.
   static String friendly(String? raw) {
     final text = (raw ?? '').toLowerCase();
@@ -77,6 +82,11 @@ class ModelErrors {
     if (text.contains('timed out') || text.contains('timeout')) {
       return 'That took longer than expected. Please try again.';
     }
+
+    // Stable Diffusion's safety checker, which is trigger-happy enough to
+    // reject abstract images. Worth its own message: "try again" is wrong
+    // advice when the same photo and prompt will be refused again.
+    if (text.contains('nsfw')) return blocked;
 
     if (text.contains('unsupported') ||
         text.contains('cannot identify image') ||

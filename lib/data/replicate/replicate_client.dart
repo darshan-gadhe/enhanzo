@@ -142,7 +142,11 @@ class ReplicateClient {
     // The budget is re-checked against the payload's own measurements rather
     // than trusted from earlier in the call: this is the last point before the
     // bytes go out.
-    if (!image.isWithinBudget) {
+    // The payload's own measurements, against the shared default. A model
+    // with a tighter ceiling has already been applied upstream in
+    // [ImageOps.prepareForUpload]; this is the last backstop before the
+    // bytes leave, so it checks the limit that is true for everything.
+    if (!image.isWithinBudget()) {
       throw const ReplicateException(
         "This photo couldn't be prepared for enhancement. "
         'Please try another image.',

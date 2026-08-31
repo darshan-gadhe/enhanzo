@@ -74,12 +74,20 @@ class ImageBudget {
   static const int maxSourceEdge = 2048;
 
   /// Whether an image of [width]×[height] can be sent as it is.
-  static bool isWithinBudget(int width, int height) =>
-      width > 0 &&
-      height > 0 &&
-      width * height <= maxSafePixels &&
-      width <= maxSourceEdge &&
-      height <= maxSourceEdge;
+  static bool isWithinBudget(
+    int width,
+    int height, {
+    int? maxPixels,
+    int? maxEdge,
+  }) {
+    final pixels = maxPixels ?? maxSafePixels;
+    final edge = maxEdge ?? maxSourceEdge;
+    return width > 0 &&
+        height > 0 &&
+        width * height <= pixels &&
+        width <= edge &&
+        height <= edge;
+  }
 
   /// The largest size within the budget that keeps [width]:[height]'s shape.
   ///
@@ -90,11 +98,26 @@ class ImageBudget {
   ///
   /// Throws [ArgumentError] on a non-positive dimension, which is not a size
   /// to be fitted but an image that failed to decode.
-  static ImageSize fit(int width, int height) {
+  ///
+  /// [maxPixels] and [maxEdge] override the Real-ESRGAN defaults for a model
+  /// with a tighter limit. They are not the same for every model: Stable
+  /// Diffusion inpainting runs at 512px and tried to allocate 51 GiB when
+  /// handed a 1373px photo, which the upscaler takes without complaint. A
+  /// single global budget was only ever right for one model.
+  static ImageSize fit(
+    int width,
+    int height, {
+    int? maxPixels,
+    int? maxEdge,
+  }) {
     if (width <= 0 || height <= 0) {
       throw ArgumentError('Image has no size: ${width}x$height');
     }
-    if (isWithinBudget(width, height)) return ImageSize(width, height);
+    final pixelCap = maxPixels ?? maxSafePixels;
+    final edgeCap = maxEdge ?? maxSourceEdge;
+    if (isWithinBudget(width, height, maxPixels: pixelCap, maxEdge: edgeCap)) {
+      return ImageSize(width, height);
+    }
 
     var w = width;
     var h = height;
@@ -102,15 +125,15 @@ class ImageBudget {
     // 1. The edge cap. Scaling the longest edge down to the ceiling brings the
     //    other with it, so the shape is preserved.
     final longest = w > h ? w : h;
-    if (longest > maxSourceEdge) {
-      final scale = maxSourceEdge / longest;
+    if (longest > edgeCap) {
+      final scale = edgeCap / longest;
       w = math.max(1, (w * scale).floor());
       h = math.max(1, (h * scale).floor());
     }
 
     // 2. The pixel cap: scale = sqrt(budget / area), applied to both edges.
-    if (w * h > maxSafePixels) {
-      var scale = math.sqrt(maxSafePixels / (w * h));
+    if (w * h > pixelCap) {
+      var scale = math.sqrt(pixelCap / (w * h));
       var nw = math.max(1, (w * scale).floor());
       var nh = math.max(1, (h * scale).floor());
 
@@ -120,7 +143,7 @@ class ImageBudget {
       // point decides `scale`, and a budget this close to a hard failure is
       // worth making structurally true rather than provably true.
       var guard = 0;
-      while (nw * nh > maxSafePixels && guard++ < 64) {
+      while (nw * nh > pixelCap && guard++ < 64) {
         scale *= 0.999;
         nw = math.max(1, (w * scale).floor());
         nh = math.max(1, (h * scale).floor());

@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 
+import '../models/tool_options.dart';
 import 'image_budget.dart';
 
 /// An image that has been measured and proven to fit the model's input budget.
@@ -45,7 +46,13 @@ class PreparedImage {
 
   /// Restates the guarantee at the point of use. Cheap, and it means a future
   /// change to the preparation path cannot quietly stop honouring it.
-  bool get isWithinBudget => ImageBudget.isWithinBudget(width, height);
+  bool isWithinBudget({int? maxEdge, int? maxPixels}) =>
+      ImageBudget.isWithinBudget(
+        width,
+        height,
+        maxEdge: maxEdge,
+        maxPixels: maxPixels,
+      );
 
   @override
   String toString() =>
@@ -132,6 +139,8 @@ class ImageOps {
     File source, {
     required double? aspectRatio,
     required String targetPathWithoutExtension,
+    int? maxEdge,
+    int? maxPixels,
   }) async {
     ui.Image? decoded;
     try {
@@ -157,7 +166,12 @@ class ImageOps {
           cropW.round() != srcW || cropH.round() != srcH;
 
       // The size that will actually be sent.
-      final fitted = ImageBudget.fit(cropW.round(), cropH.round());
+      final fitted = ImageBudget.fit(
+        cropW.round(),
+        cropH.round(),
+        maxEdge: maxEdge,
+        maxPixels: maxPixels,
+      );
       final resized =
           fitted.width != cropW.round() || fitted.height != cropH.round();
 
@@ -269,6 +283,63 @@ class ImageOps {
       return true;
     }());
     return image;
+  }
+
+  /// Rasterises the painted mask to match [image] exactly and writes it out.
+  ///
+  /// The mask must be the same size as the photo the model receives — not the
+  /// photo the user painted on, which was whatever the canvas happened to be.
+  /// [ToolOptions] stores strokes in normalised coordinates precisely so this
+  /// can size them to the prepared upload at the last moment.
+  ///
+  /// Returns a [PreparedImage] like any other, so the mask travels the same
+  /// verified path to the upload as the photo does. Throws
+  /// [ImagePreparationException] when nothing was painted: an all-black mask
+  /// asks the model to change nothing, which is a wasted paid run.
+  static Future<PreparedImage> prepareMask(
+    ToolOptions options,
+    PreparedImage image, {
+    required String targetPathWithoutExtension,
+  }) async {
+    ui.Image? raster;
+    try {
+      raster = await options.rasteriseMask(image.width, image.height);
+      if (raster == null) {
+        throw const ImagePreparationException(
+          'Paint over the part you want changed, then try again.',
+        );
+      }
+      final data = await raster.toByteData(format: ui.ImageByteFormat.png);
+      if (data == null) {
+        throw const ImagePreparationException(preparationFailedMessage);
+      }
+      final bytes = data.buffer.asUint8List();
+      final target = File('$targetPathWithoutExtension.png');
+      await target.parent.create(recursive: true);
+      await target.writeAsBytes(bytes, flush: true);
+
+      return _report(
+        PreparedImage._(
+          file: target,
+          width: image.width,
+          height: image.height,
+          byteLength: bytes.length,
+          format: 'png',
+          wasResized: false,
+        ),
+        source: 'mask for ${image.width}x${image.height}',
+      );
+    } on ImagePreparationException {
+      rethrow;
+    } catch (error) {
+      assert(() {
+        debugPrint('Mask preparation failed: $error');
+        return true;
+      }());
+      throw const ImagePreparationException(preparationFailedMessage);
+    } finally {
+      raster?.dispose();
+    }
   }
 
   static String _extensionOf(String path) {

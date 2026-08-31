@@ -14,6 +14,7 @@ import '../data/replicate/replicate_config.dart';
 import '../data/revenuecat/entitlement_source.dart';
 import '../data/theme_store.dart';
 import '../models/models.dart';
+import '../models/tool_options.dart';
 import '../widgets/demo_image.dart';
 import 'access_state.dart';
 import 'ads_state.dart';
@@ -30,11 +31,15 @@ enum AppScreen { home, history, profile }
 
 /// Steps of the modal edit flow. `null` means no flow is active.
 ///
+/// [settings] is where a tool collects what it needs before it can run — a
+/// painted mask, a prompt, a background choice. Tools that need nothing skip
+/// it entirely, which is every enhance tool.
+///
 /// [error] is the failure surface for a processing job. It is unreachable in
 /// this build — the simulated pipeline always succeeds — but wired to
 /// [FlowController.fail] so a real inference backend has an honest place to land
 /// when a job fails.
-enum EditFlow { crop, tool, processing, result, error }
+enum EditFlow { crop, tool, settings, processing, result, error }
 
 /// Theme mode. Driven by the Settings > Appearance toggle and persisted across
 /// launches via [ThemeStore].
@@ -147,6 +152,9 @@ class FlowState {
   /// edge rather than a condition the overlay could re-fire on.
   final bool needsUpgrade;
 
+  /// What the user supplied on the settings step.
+  final ToolOptions options;
+
   /// The frame chosen on the crop step, carried through to the result.
   ///
   /// Defaults to [CropRatio.free] — the photo's own shape, nothing removed.
@@ -165,6 +173,7 @@ class FlowState {
     this.comparePos = 56,
     this.toolPreset = false,
     this.needsUpgrade = false,
+    this.options = const ToolOptions(),
     this.cropRatio = CropRatio.free,
     this.photo,
     this.photoAspect,
@@ -198,6 +207,7 @@ class FlowState {
     double? comparePos,
     bool? toolPreset,
     bool? needsUpgrade,
+    ToolOptions? options,
     CropRatio? cropRatio,
     File? photo,
     double? photoAspect,
@@ -218,6 +228,7 @@ class FlowState {
       comparePos: comparePos ?? this.comparePos,
       toolPreset: toolPreset ?? this.toolPreset,
       needsUpgrade: needsUpgrade ?? this.needsUpgrade,
+      options: options ?? this.options,
       cropRatio: cropRatio ?? this.cropRatio,
       photo: photo ?? this.photo,
       photoAspect: photoAspect ?? this.photoAspect,
@@ -311,7 +322,7 @@ class FlowController extends Notifier<FlowState> {
 
   void cropNext() {
     if (state.tool.isNotEmpty) {
-      _beginProcessing();
+      _afterTool();
     } else {
       state = state.copyWith(step: EditFlow.tool);
     }
@@ -319,7 +330,36 @@ class FlowController extends Notifier<FlowState> {
 
   void chooseTool(String tool) {
     state = state.copyWith(tool: tool);
-    _beginProcessing();
+    _afterTool();
+  }
+
+  /// Either collect what the tool still needs, or run it.
+  void _afterTool() {
+    if (ToolModels.needsFor(state.displayTool) == ToolNeeds.nothing) {
+      _beginProcessing();
+      return;
+    }
+    state = state.copyWith(step: EditFlow.settings);
+  }
+
+  /// Records what the settings step collected.
+  void setOptions(ToolOptions options) =>
+      state = state.copyWith(options: options);
+
+  /// Leaves the settings step and starts the run.
+  void settingsNext() => _beginProcessing();
+
+  /// Whether the settings step has everything the tool needs.
+  bool get settingsComplete {
+    final options = state.options;
+    return switch (ToolModels.needsFor(state.displayTool)) {
+      ToolNeeds.nothing => true,
+      ToolNeeds.background => true,
+      ToolNeeds.mask => options.hasMask,
+      ToolNeeds.maskAndPrompt => options.hasMask && options.hasPrompt,
+      ToolNeeds.promptAndDirection =>
+        options.hasPrompt && !options.expansion.isEmpty,
+    };
   }
 
   void setCropRatio(CropRatio ratio) =>
@@ -346,7 +386,12 @@ class FlowController extends Notifier<FlowState> {
   void back() {
     // Where a finished or abandoned job returns to: the picker if the user
     // chose the tool mid-flow, otherwise the crop step they came from.
-    final beforeProcessing = state.toolPreset ? EditFlow.crop : EditFlow.tool;
+    // A tool with a settings step is what processing came from; otherwise the
+    // picker if the tool was chosen mid-flow, else the crop step.
+    final beforeProcessing =
+        ToolModels.needsFor(state.displayTool) != ToolNeeds.nothing
+        ? EditFlow.settings
+        : (state.toolPreset ? EditFlow.crop : EditFlow.tool);
 
     switch (state.step) {
       // A running job has no partial state worth keeping, so backing out of
@@ -360,6 +405,13 @@ class FlowController extends Notifier<FlowState> {
           progress: 0,
           comparePos: 56,
           clearRun: true,
+        );
+      // Back from settings returns to wherever the tool was chosen, keeping
+      // what was painted or typed — retyping a prompt to fix a crop is the
+      // kind of thing that makes a flow feel hostile.
+      case EditFlow.settings:
+        state = state.copyWith(
+          step: state.toolPreset ? EditFlow.crop : EditFlow.tool,
         );
       case EditFlow.tool:
         state = state.copyWith(step: EditFlow.crop);
@@ -480,6 +532,8 @@ class FlowController extends Notifier<FlowState> {
       tool: state.displayTool,
       // The frame chosen on the crop step, or the photo's own for 'Free'.
       aspectRatio: state.cropRatio.value,
+      // The mask, prompt, background or direction the settings step collected.
+      options: state.options,
     );
     _job = job;
     _startProgressEasing();

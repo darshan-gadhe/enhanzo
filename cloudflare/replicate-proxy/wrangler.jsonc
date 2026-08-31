@@ -22,6 +22,13 @@
 		// The background remover behind Remove BG. Optional: leave it out and
 		// the proxy simply runs the upscaler alone.
 		"BACKGROUND_MODEL_VERSION": "851-labs/background-remover:a029dff38972b5fda4ec5d75d7d1cd25aeff621d2cf4946a41055d7db66b80bc",
+		// Object Removal, Remove People, Watermark Remove and Magic Eraser —
+		// one model, four framings: erase what the mask covers and rebuild it.
+		"INPAINT_FILL_MODEL_VERSION": "allenhooo/lama:cdac78a1bec5b23c07fd29692fb70baa513ea403a39e643c48ec5edadb15fe72",
+		// Inpainting: paint something new into the masked region.
+		"INPAINT_PROMPT_MODEL_VERSION": "andreasjansson/stable-diffusion-inpainting:e490d072a34a94a11e9711ed5a6ba621c3fab884eda1665d9d3a282d65a21180",
+		// AI Expand: extend the canvas and generate what belongs there.
+		"OUTPAINT_MODEL_VERSION": "fermatresearch/sdxl-outpainting-lora:a542ccf352995f3c41f0bcfaef641daa3058bf2b00e08e04feb0295334ab9804",
 		// Ceiling on the upscale factor a caller may ask for.
 		"MAX_SCALE": "4",
 		// Largest upload accepted, in bytes (12 MB).
@@ -66,6 +73,9 @@
 			"vars": {
 				"ALLOWED_MODEL_VERSION": "daanelson/real-esrgan-a100:f94d7ed4a1f7e1ffed0d51e4089e4911609d5eeee5e874ef323d2c7562624bed",
 				"BACKGROUND_MODEL_VERSION": "851-labs/background-remover:a029dff38972b5fda4ec5d75d7d1cd25aeff621d2cf4946a41055d7db66b80bc",
+		"INPAINT_FILL_MODEL_VERSION": "allenhooo/lama:cdac78a1bec5b23c07fd29692fb70baa513ea403a39e643c48ec5edadb15fe72",
+		"INPAINT_PROMPT_MODEL_VERSION": "andreasjansson/stable-diffusion-inpainting:e490d072a34a94a11e9711ed5a6ba621c3fab884eda1665d9d3a282d65a21180",
+		"OUTPAINT_MODEL_VERSION": "fermatresearch/sdxl-outpainting-lora:a542ccf352995f3c41f0bcfaef641daa3058bf2b00e08e04feb0295334ab9804",
 				"MAX_SCALE": "4",
 				"MAX_UPLOAD_BYTES": "12582912",
 				"DAILY_PREDICTION_QUOTA": "10"

@@ -16,6 +16,7 @@ import 'dart:ui' as ui;
 import 'package:ai_enhancer/data/app_info.dart';
 import 'package:ai_enhancer/data/catalog.dart';
 import 'package:ai_enhancer/data/image_budget.dart';
+import 'package:ai_enhancer/data/image_ops.dart';
 import 'package:ai_enhancer/data/replicate/enhance_job.dart';
 import 'package:ai_enhancer/data/replicate/tool_models.dart';
 import 'package:ai_enhancer/data/replicate/replicate_client.dart';
@@ -153,7 +154,9 @@ void main() {
   group('every tool backed by a model', () {
     // Read from the model's own table, so a tool added later is covered here
     // the day it is added rather than the day someone remembers.
-    for (final tool in ToolModels.supportedTools) {
+    for (final tool in ToolModels.supportedTools.where(
+      (t) => ToolModels.needsFor(t) == ToolNeeds.nothing,
+    )) {
       test('$tool sends a photo inside the GPU budget', () async {
         final upload = await runTool(tool);
 
@@ -173,18 +176,38 @@ void main() {
       });
     }
 
-    test('the supported tools are exactly the ones this test covers', () {
-      expect(
-        ToolModels.supportedTools,
-        containsAll(<String>[
-          'AI Enhance',
-          'HD Upscale',
-          'Unblur',
-          'Restore Photo',
-          'Remove BG',
-        ]),
-      );
-      expect(ToolModels.supportedTools, hasLength(5));
+    test('every catalog tool has a model — none are UI-only', () {
+      final authored = [
+        for (final category in Catalog.allCategories)
+          for (final tool in category.tools) tool.name,
+      ];
+      expect(authored, hasLength(12));
+      for (final tool in authored) {
+        expect(ToolModels.supports(tool), isTrue,
+            reason: '$tool is in the catalog with nothing behind it');
+      }
+      expect(ToolModels.supportedTools.toSet(), authored.toSet());
+    });
+
+    test('each tool declares what it needs from the user', () {
+      const expected = {
+        'AI Enhance': ToolNeeds.nothing,
+        'HD Upscale': ToolNeeds.nothing,
+        'Unblur': ToolNeeds.nothing,
+        'Restore Photo': ToolNeeds.nothing,
+        'Remove BG': ToolNeeds.nothing,
+        'Replace BG': ToolNeeds.background,
+        'Object Removal': ToolNeeds.mask,
+        'Remove People': ToolNeeds.mask,
+        'Watermark Remove': ToolNeeds.mask,
+        'Magic Eraser': ToolNeeds.mask,
+        'Inpainting': ToolNeeds.maskAndPrompt,
+        'AI Expand': ToolNeeds.promptAndDirection,
+      };
+      for (final entry in expected.entries) {
+        expect(ToolModels.needsFor(entry.key), entry.value,
+            reason: entry.key);
+      }
     });
 
     test('every shown tool has a model — the catalog cannot advertise a '
@@ -203,7 +226,9 @@ void main() {
     test('they all send the same prepared size — one layer, not five',
         () async {
       final sizes = <String, String>{};
-      for (final tool in ToolModels.supportedTools) {
+      for (final tool in ToolModels.supportedTools.where(
+      (t) => ToolModels.needsFor(t) == ToolNeeds.nothing,
+    )) {
         final upload = await runTool(tool);
         sizes[tool] = '${upload!.width}x${upload.height}';
       }
@@ -212,46 +237,42 @@ void main() {
     });
   });
 
-  group('catalog tools with no model behind them', () {
-    // Authored but not shown — see Catalog.allCategories.
-    final unsupported = [
-      for (final category in Catalog.allCategories)
-        for (final tool in category.tools)
-          if (!ToolModels.supports(tool.name)) tool.name,
-    ];
-
-    test('they exist, none claim a model, and none are shown', () {
-      expect(unsupported, isNotEmpty);
-      final shown = {
-        for (final category in Catalog.categories)
-          for (final tool in category.tools) tool.name,
-      };
-      for (final tool in unsupported) {
-        expect(ToolModels.supports(tool), isFalse);
-        expect(shown, isNot(contains(tool)),
-            reason: '$tool has no model and must not be advertised');
-      }
+  group('tools that need something from the user', () {
+    test('refuse to run without it, before anything is uploaded', () async {
+      // A mask tool with no mask must fail in preparation, not by uploading a
+      // photo and asking the model to change nothing — that is a paid run for
+      // a result nobody wanted.
+      await expectLater(
+        runTool('Object Removal'),
+        throwsA(isA<ImagePreparationException>()),
+      );
     });
 
-    for (final tool in [
-      'Replace BG',
-      'Object Removal',
-      'Remove People',
-      'Watermark Remove',
-      'Magic Eraser',
-      'AI Expand',
-      'Inpainting',
-    ]) {
-      test('$tool stops before the network rather than uploading', () async {
-        await expectLater(runTool(tool), throwsA(isA<StateError>()));
+    for (final tool in ['Remove People', 'Watermark Remove', 'Magic Eraser']) {
+      test('$tool needs a mask and says so', () async {
+        await expectLater(
+          runTool(tool),
+          throwsA(isA<ImagePreparationException>()),
+        );
       });
     }
+
+    test('the message tells the user what to do, not what broke', () async {
+      try {
+        await runTool('Magic Eraser');
+        fail('expected a refusal');
+      } on ImagePreparationException catch (e) {
+        expect(e.message.toLowerCase(), contains('paint'));
+        for (final jargon in const ['mask', 'null', 'pixel', 'model']) {
+          expect(e.message.toLowerCase(), isNot(contains(jargon)));
+        }
+      }
+    });
   });
 
   group('what the app claims it can do', () {
     test('each model describes its own result, in its own words', () {
-      expect(ToolModels.forTool('HD Upscale')!.resultSummary,
-          'Enhanced 4x');
+      expect(ToolModels.forTool('HD Upscale')!.resultSummary, 'Enhanced 4x');
       // Not 'Enhanced Transparent PNG' — the result line is a sentence, not a
       // badge with a prefix glued on.
       expect(ToolModels.forTool('Remove BG')!.resultSummary,
@@ -265,17 +286,15 @@ void main() {
 
     test('the premium benefits are things premium actually gives', () {
       final claims = AppInfo.proBenefits.join(' | ').toLowerCase();
-
       // Free users get every tool — the limit is on how many runs, not which
       // tools — so "every tool unlocked" was never true.
       expect(claims, isNot(contains('unlocked')));
       // The app applies no watermark to anyone, so there is none to remove.
       expect(claims, isNot(contains('watermark')));
-      // Inputs are capped to the model's GPU budget, so 8K is not a promise
-      // an ordinary photo can keep.
+      // Inputs are capped to each model's budget, so 8K is not a promise an
+      // ordinary photo can keep.
       expect(claims, isNot(contains('8k')));
 
-      // What it does give.
       expect(claims, contains('unlimited'));
       expect(claims, contains('no ads'));
     });

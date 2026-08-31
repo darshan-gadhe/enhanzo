@@ -78,7 +78,7 @@ void main() {
       final prepared = await prepare(source);
 
       expect(prepared.wasResized, isTrue);
-      expect(prepared.isWithinBudget, isTrue);
+      expect(prepared.isWithinBudget(), isTrue);
       expect(prepared.pixelCount,
           lessThanOrEqualTo(ImageBudget.maxSafePixels));
       expect(prepared.width, prepared.height, reason: 'still square');
@@ -161,14 +161,14 @@ void main() {
       final source = await makeImage(sandbox, 4000, 3000);
       final prepared = await prepare(source);
       expect(prepared.width / prepared.height, closeTo(4 / 3, 0.01));
-      expect(prepared.isWithinBudget, isTrue);
+      expect(prepared.isWithinBudget(), isTrue);
     });
 
     test('a 16:9 photo keeps 16:9', () async {
       final source = await makeImage(sandbox, 3840, 2160);
       final prepared = await prepare(source);
       expect(prepared.width / prepared.height, closeTo(16 / 9, 0.01));
-      expect(prepared.isWithinBudget, isTrue);
+      expect(prepared.isWithinBudget(), isTrue);
     });
 
     test('no aspect ratio means nothing is cropped away', () async {
@@ -182,7 +182,7 @@ void main() {
       final source = await makeImage(sandbox, 4000, 3000);
       final prepared = await prepare(source, aspectRatio: 1);
       expect(prepared.width, prepared.height);
-      expect(prepared.isWithinBudget, isTrue);
+      expect(prepared.isWithinBudget(), isTrue);
     });
   });
 

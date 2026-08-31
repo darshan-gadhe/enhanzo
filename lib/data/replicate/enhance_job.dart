@@ -1,6 +1,7 @@
 import 'dart:io';
 
 
+import '../../models/tool_options.dart';
 import '../edits_store.dart';
 import '../image_ops.dart';
 import 'model_errors.dart';
@@ -94,6 +95,10 @@ class EnhanceJob {
   /// photo's own proportions.
   final double? aspectRatio;
 
+  /// What the user supplied on the tool's settings step — the painted mask,
+  /// the prompt, the background choice. Empty for tools that need none.
+  final ToolOptions options;
+
   final ReplicateClient _client;
 
   bool _cancelled = false;
@@ -103,6 +108,7 @@ class EnhanceJob {
     required this.photo,
     required this.tool,
     required this.aspectRatio,
+    this.options = const ToolOptions(),
     ReplicateClient? client,
   }) : _client = client ?? ReplicateClient();
 
@@ -131,18 +137,41 @@ class EnhanceJob {
         photo,
         aspectRatio: aspectRatio,
         targetPathWithoutExtension: '${dir.path}/${stamp}_source',
+        // Each model states its own ceiling; the shared default is the
+        // upscaler's, which is far too generous for a 512px diffusion model.
+        maxEdge: model.maxEdge,
+        maxPixels: model.maxPixels,
       );
       final source = prepared.file;
+      _throwIfCancelled();
+
+      // The mask is sized to the prepared photo, not to the canvas the user
+      // painted on, and travels the same verified path to the upload.
+      final needsMask = model.needs == ToolNeeds.mask ||
+          model.needs == ToolNeeds.maskAndPrompt;
+      final mask = needsMask
+          ? await ImageOps.prepareMask(
+              options,
+              prepared,
+              targetPathWithoutExtension: '${dir.path}/${stamp}_mask',
+            )
+          : null;
       _throwIfCancelled();
 
       onPhase(EnhancePhase.uploading);
       final uploaded = await _client.uploadImage(prepared);
       _throwIfCancelled();
+      final maskUrl = mask == null ? null : await _client.uploadImage(mask);
+      _throwIfCancelled();
 
       onPhase(EnhancePhase.queued);
       var prediction = await _client.createPrediction(
         version: model.version,
-        input: model.inputFor(uploaded),
+        input: model.inputFor(
+          imageUrl: uploaded,
+          maskUrl: maskUrl,
+          options: options,
+        ),
       );
       _predictionId = prediction.id;
       _throwIfCancelled();

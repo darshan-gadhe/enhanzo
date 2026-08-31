@@ -26,6 +26,8 @@ import 'package:ai_enhancer/data/image_budget.dart';
 import 'package:ai_enhancer/data/image_ops.dart';
 import 'package:ai_enhancer/data/replicate/device_id.dart';
 import 'package:ai_enhancer/data/replicate/tool_models.dart';
+import 'package:ai_enhancer/data/replicate/enhance_job.dart';
+import 'package:ai_enhancer/models/tool_options.dart';
 import 'package:ai_enhancer/data/replicate/replicate_client.dart';
 import 'package:ai_enhancer/data/replicate/replicate_config.dart';
 import 'package:flutter/painting.dart';
@@ -114,7 +116,8 @@ void main() {
       final uploaded = await uploadRaw(source);
       var prediction = await client.createPrediction(
         version: ToolModels.forTool('AI Enhance')!.version,
-        input: ToolModels.forTool('AI Enhance')!.inputFor(uploaded),
+        input:
+            ToolModels.forTool('AI Enhance')!.inputFor(imageUrl: uploaded),
       );
       if (!prediction.isTerminal) {
         prediction = await client.awaitPrediction(prediction.id,
@@ -131,7 +134,12 @@ void main() {
   }, timeout: const Timeout(Duration(minutes: 6)));
 
   // Every tool the app claims a model for, run for real, one at a time.
-  for (final tool in ToolModels.supportedTools) {
+  // Tools that need nothing from the user run through the raw client here;
+  // the ones that need a mask or a prompt are exercised through EnhanceJob
+  // below, because the mask upload is part of what has to be proved.
+  for (final tool in ToolModels.supportedTools.where(
+    (t) => ToolModels.needsFor(t) == ToolNeeds.nothing,
+  )) {
     test('TOOL — $tool completes end to end', () async {
       final client = ReplicateClient();
       try {
@@ -143,7 +151,7 @@ void main() {
           targetPathWithoutExtension: '${sandbox.path}/${tool.hashCode}',
         );
         final uploaded = await client.uploadImage(prepared);
-        final input = model.inputFor(uploaded);
+        final input = model.inputFor(imageUrl: uploaded);
         say('$tool -> ${model.runtimeType} (${model.label}), '
             'input ${prepared.width}x${prepared.height}');
 
@@ -180,6 +188,63 @@ void main() {
     }, timeout: const Timeout(Duration(minutes: 8)));
   }
 
+  // The tools that need a mask or a prompt, run through EnhanceJob itself —
+  // the same code path the app uses, mask upload included.
+  final cases = <String, ToolOptions>{
+    'Object Removal': ToolOptions(strokes: [
+      MaskStroke(points: [
+        const Offset(0.55, 0.20), const Offset(0.75, 0.28),
+        const Offset(0.80, 0.35),
+      ], radius: 0.10),
+    ]),
+    'Magic Eraser': ToolOptions(strokes: [
+      MaskStroke(points: [const Offset(0.35, 0.65)], radius: 0.14),
+    ]),
+    'Remove People': ToolOptions(strokes: [
+      MaskStroke(points: [const Offset(0.50, 0.50)], radius: 0.12),
+    ]),
+    'Watermark Remove': ToolOptions(strokes: [
+      MaskStroke(points: [
+        const Offset(0.10, 0.90), const Offset(0.35, 0.90),
+      ], radius: 0.05),
+    ]),
+    'Inpainting': ToolOptions(
+      prompt: 'a plain grey concrete wall, photograph',
+      strokes: [
+        MaskStroke(points: [
+          const Offset(0.30, 0.60), const Offset(0.45, 0.70),
+        ], radius: 0.12),
+      ],
+    ),
+    'AI Expand': const ToolOptions(
+      prompt: 'more of the same blue sky',
+      expansion: Expansion(left: 256, right: 256),
+    ),
+    'Replace BG': const ToolOptions(background: BackgroundStyle.white),
+  };
+
+  cases.forEach((tool, options) {
+    test('TOOL — $tool completes end to end', () async {
+      final photo = await photo1536();
+      final outcome = await EnhanceJob(
+        photo: photo,
+        tool: tool,
+        aspectRatio: null,
+        options: options,
+      ).run(onPhase: (p) => say('  $tool: ${p.name}'));
+
+      final bytes = await outcome.result.readAsBytes();
+      say('$tool -> ${outcome.outputLabel} · ${bytes.length} bytes '
+          '· ${outcome.result.path.split('/').last}');
+      expect(bytes.length, greaterThan(1000));
+
+      final decoded = await decodeImageFromList(bytes);
+      say('$tool -> output ${decoded.width}x${decoded.height}');
+      expect(decoded.width, greaterThan(0));
+      decoded.dispose();
+    }, timeout: const Timeout(Duration(minutes: 8)));
+  });
+
   test('STEP 2 — the same photo, prepared, succeeds', () async {
     final client = ReplicateClient();
     try {
@@ -191,12 +256,13 @@ void main() {
       );
       say('prepared: ${prepared.width}x${prepared.height} '
           '(${prepared.pixelCount} px), ${prepared.byteLength} bytes');
-      expect(prepared.isWithinBudget, isTrue);
+      expect(prepared.isWithinBudget(), isTrue);
 
       final uploaded = await client.uploadImage(prepared);
       var prediction = await client.createPrediction(
         version: ToolModels.forTool('AI Enhance')!.version,
-        input: ToolModels.forTool('AI Enhance')!.inputFor(uploaded),
+        input:
+            ToolModels.forTool('AI Enhance')!.inputFor(imageUrl: uploaded),
       );
       say('prediction ${prediction.id}: ${prediction.status}');
       if (!prediction.isTerminal) {
