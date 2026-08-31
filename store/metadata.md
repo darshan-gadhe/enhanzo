@@ -13,10 +13,10 @@ along with the rest of the iOS build — there is no Apple listing to fill in.
 The previous copy described an app that no longer exists, in three ways that
 each cost ranking rather than earning it:
 
-- **It never mentioned background removal.** Remove BG ships now, and
-  "background remover" is one of the highest-volume queries in the category.
-  It appeared nowhere in the listing and nowhere in the 2,577-term keyword
-  bank.
+- **It described five tools while twelve shipped.** Object removal, people
+  removal, watermark removal, the eraser, inpainting, canvas expansion and
+  background replacement were all missing — seven working tools earning
+  nothing, several of them high-volume queries in their own right.
 - **It promised 8K exports.** Inputs are capped to the model's GPU budget, so
   a typical photo now tops out around 6K. Every "8K" was removed rather than
   left to be discovered by a reviewer or a refund request.
@@ -36,8 +36,7 @@ and retention is a ranking input.
 `30 char max — 26 used`
 
 ```
-Enhanzo: AI Photo Enhancer
-```
+Enhanzo: AI Photo Enhancer```
 
 The single most heavily weighted field. Brand first, then the head term
 "AI Photo Enhancer" exactly as people type it.
@@ -55,11 +54,10 @@ Enhanzo: Photo Enhancer & BG        (28)  — buys the background-remover query
 
 ## Short description
 
-`80 char max — 72 used`
+`80 char max — 71 used`
 
 ```
-Unblur photos, restore old pictures, upscale to HD & remove backgrounds.
-```
+Unblur, restore & upscale photos, erase objects and remove backgrounds.```
 
 Second-heaviest field, and shown above the fold. Four distinct high-volume
 intents in one line: unblur, restore old, upscale HD, remove background.
@@ -68,105 +66,113 @@ intents in one line: unblur, restore old, upscale HD, remove background.
 
 ## Full description
 
-`4000 char max — 3349 used`
+`4000 char max — 3569 used`
 
 The previous version used 1,477 of 4,000 — 63% of the largest indexed field on
 Play left empty. This one earns the space with real use cases and natural
 keyword placement rather than repetition, which Play's spam policy penalises.
 
 ```
-Enhanzo is an AI photo enhancer that makes blurry, low-resolution, old and
-damaged pictures look sharp again — in one tap, on your phone, with no editing
-skill and no desktop software.
+Enhanzo is an AI photo editor that repairs, upscales and cleans up your
+pictures in one tap — on your phone, with no editing skill and no desktop
+software.
 
-Unblur a photo that came out soft. Restore an old family picture that has
-faded or been scratched. Upscale a small, pixelated image so it holds up
-printed or on a big screen. Cut a subject out of its background into a clean
-transparent PNG. Every result comes back as a real before/after you can drag
-through — the actual output, never a simulated preview.
+Unblur a shot that came out soft. Restore an old family photo that has faded
+or been scratched. Upscale a small, pixelated image so it holds up printed.
+Brush over a person, an object or a watermark and have it erased and the space
+behind it rebuilt. Cut a subject out into a transparent PNG. Every result comes
+back as a real before/after you can drag through — the actual output, never a
+simulated preview.
 
-WHAT YOU CAN DO
+ENHANCE AND REPAIR
 
 • AI Enhance — a one-tap quality boost for any picture. Sharper detail,
-  cleaner colour, better overall photo quality, with face enhancement built in
-  for portraits.
-
-• HD Upscale — an AI image upscaler that increases photo resolution up to 4x.
-  Turn a small or low-resolution photo into a high-resolution one for printing,
-  framing or posting.
-
-• Unblur — fix motion blur and out-of-focus shots. A blurry photo fixer that
-  recovers detail that looked lost, rather than just sharpening edges.
-
+  cleaner colour, with face enhancement for portraits.
+• HD Upscale — an AI image upscaler that raises photo resolution up to 4x, for
+  printing, framing or enlarging.
+• Unblur — a blurry photo fixer for motion blur and missed focus. It recovers
+  detail rather than just sharpening edges.
 • Restore Photo — old photo restoration for faded, grainy, scratched and
-  damaged prints, with AI face restoration for portraits. Ideal for scanning
-  and reviving old family photographs.
+  damaged prints, with AI face restoration. Ideal for scanned family photos.
 
-• Remove BG — an automatic background remover. It cuts out the subject and
-  returns a transparent PNG, ready to drop onto a new background, a product
-  listing, a sticker or a profile picture.
+ERASE AND CLEAN UP
+
+Brush over what you want gone, and the AI rebuilds what was behind it.
+
+• Object Removal — erase an unwanted object from a photo.
+• Remove People — clear a photobomber or a crowd out of your shot.
+• Watermark Remove — clean a logo or stamp off a picture you own.
+• Magic Eraser — brush away anything: wires, signs, blemishes, clutter.
+
+BACKGROUNDS
+
+• Remove BG — an automatic background remover that returns a transparent PNG,
+  ready for a product listing, a sticker or a profile picture.
+• Replace BG — swap the background for white, a green screen or a soft blur.
+
+GENERATE
+
+• Inpainting — paint over an area, describe what belongs there, and the AI
+  fills it in. Results come back at 512px, this model's native size.
+• AI Expand — extend the canvas beyond the edges of your photo and let the AI
+  generate what continues the scene.
 
 WHO ENHANZO IS FOR
 
 • Anyone digitising old family photos, scans and albums
 • Anyone with a blurry, grainy or pixelated picture worth saving
-• Sellers and small businesses who need clean product cut-outs
-• People preparing a photo to print, frame or enlarge
-• Anyone who wants a picture to look better before sharing it
+• Sellers who need clean product cut-outs and white backgrounds
+• People clearing strangers and clutter out of their holiday photos
+• Anyone preparing an image to print, frame or share
 
 HOW IT WORKS
 
 1. Pick a photo from your gallery, or take a new one.
-2. Choose a tool and frame your crop — or keep the whole picture as it is.
-3. Enhanzo processes it and shows you an honest before/after comparison.
-4. Save it to your History, or share it straight out of the app.
+2. Choose a tool and frame your crop — or keep the whole picture.
+3. For the brush tools, paint over the part you want changed.
+4. Enhanzo processes it and shows an honest before/after comparison.
+5. Save it to History, or share it straight out of the app.
 
-Nothing is cropped away unless you ask for it. Photos are resized
-proportionally so the whole composition — and everyone in it — reaches the AI
-intact.
-
-BUILT AROUND AN HONEST RESULT
-
-Enhanzo shows the same before/after comparison everywhere in the app, on your
-own photo. What you see is what the tool actually did — not a stock demo, not
-a filtered preview. Your finished edits collect in History so you can revisit,
-re-share or delete them later.
+Nothing is cropped away unless you ask. Photos are resized proportionally, so
+the whole composition — and everyone in it — reaches the AI intact.
 
 PRIVACY, PLAINLY
 
 No account and no sign-up. Your photo is sent only to the AI service that
 processes it, and is never sold or used to train anything. Edits stay on your
-device and are cleared automatically after 30 days. Full policy in the app
-under Settings.
+device and are cleared automatically after 30 days. Full policy in Settings.
 
 FREE AND PREMIUM
 
 Enhanzo is free to try — every tool is available on the free tier, with three
 enhancements included and occasional full-screen ads between edits.
 
-Enhanzo Premium gives you unlimited enhancements and removes ads. Weekly and
-yearly plans are available, and the price is shown before you subscribe.
+Enhanzo Premium gives unlimited enhancements and removes ads. Weekly and
+yearly plans are available and the price is shown before you subscribe.
 Subscriptions renew automatically unless cancelled at least 24 hours before
 the period ends, and can be managed or cancelled anytime in Google Play.
 
-Questions, a photo that did not come out right, or a feature you want? We read
-every message — get in touch from Settings.
+Questions, or a photo that did not come out right? We read every message —
+get in touch from Settings.
 ```
 
 ---
 
 ## What's new / release notes
 
-`500 char max — 376 used`
+`500 char max — 464 used`
 
 ```
-• Remove BG — cut any subject out into a transparent PNG.
-• Big reliability work on the enhancer: large photos are now resized safely
-  before processing, so oversized pictures no longer fail.
-• Clearer errors instead of technical messages when something goes wrong.
-• Faster, more stable enhancement across every tool.
+Eight new tools, all powered by real AI models:
 
-Thanks for using Enhanzo — tell us what to build next.
+• Object Removal, Remove People, Watermark Remove and Magic Eraser — brush
+  over anything and it is erased, with the space behind it rebuilt.
+• Remove BG and Replace BG — transparent cut-outs, or swap in white, green
+  or a blur.
+• Inpainting — paint an area and describe what belongs there.
+• AI Expand — extend your photo past its own edges.
+
+Plus faster, more reliable processing and clearer errors throughout.
 ```
 
 ---
@@ -195,6 +201,19 @@ than assuming:
 New subscribers start with a 3-day free trial. Cancel any time before it ends
 and you will not be charged.
 ```
+
+---
+
+## Accuracy rule
+
+Every tool named above is in `ToolModels` with a pinned model version, and each
+has been run end to end against live Replicate. If a tool is ever removed from
+`Catalog.categories`, take it out of this copy in the same change: an
+advertised feature that is not in the build is the failure this file keeps
+having.
+
+Inpainting's 512px output is stated in the description rather than left to be
+discovered — it is a 512px model, so a larger photo comes back smaller.
 
 ---
 

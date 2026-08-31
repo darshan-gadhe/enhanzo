@@ -54,7 +54,10 @@ class EditImage extends StatelessWidget {
               fit: BoxFit.cover,
               width: double.infinity,
               height: double.infinity,
-              cacheWidth: (boxW * dpr).round().clamp(1, _maxDecodeWidth),
+              // Floor of 16, not 1: Flutter derives the height from this and
+              // the source ratio, and a 1px width rounds a landscape photo's
+              // height to 0, which Skia rejects outright.
+              cacheWidth: (boxW * dpr).round().clamp(16, _maxDecodeWidth),
               // A file that has been cleared out from under us (cache eviction,
               // a deleted temp) degrades to the demo art rather than a broken
               // image box.

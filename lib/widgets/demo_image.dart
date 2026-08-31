@@ -63,7 +63,16 @@ class DemoImage extends StatelessWidget {
               final boxW = c.maxWidth.isFinite
                   ? c.maxWidth
                   : MediaQuery.sizeOf(context).width;
-              final cacheW = (boxW * dpr).round().clamp(1, 1536);
+              // A floor of 1 is not safe. Flutter derives the *height* from cacheWidth and
+              // the source aspect ratio, so decoding a 1536x1024 asset at 1px wide
+              // rounds its height to 0 and Skia refuses:
+              //
+              //   [image_decoder_skia.cc(39)] Could not resize to empty dimensions.
+              //
+              // Which happens whenever this lays out at zero width — mid-transition,
+              // or inside a collapsed box. 16px keeps the derived edge above zero for
+              // any aspect ratio the app ships.
+              final cacheW = (boxW * dpr).round().clamp(16, 1536);
               // WebP, not PNG: these are photographic before/after masters at
               // 1536x1024, and as lossless PNGs they were ~3 MB each — 60 MB
               // of the bundle for 24 files. At WebP q90 the set is under 7 MB

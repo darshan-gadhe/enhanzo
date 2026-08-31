@@ -198,6 +198,10 @@ class PromptInpaintModel extends ToolModel {
   /// ```
   ///
   /// Found by running it, not by reading about it.
+  ///
+  /// The cost is visible to the user: a 1000x667 photo comes back 512x336,
+  /// which is a downgrade rather than an edit. [label] and [resultSummary]
+  /// say so rather than letting it be discovered.
   @override
   int get maxEdge => 512;
 
@@ -228,10 +232,11 @@ class PromptInpaintModel extends ToolModel {
   };
 
   @override
-  String get label => 'Filled';
+  String get label => 'Filled · 512px';
 
   @override
-  String get resultSummary => 'Painted into your photo';
+  String get resultSummary =>
+      'Painted into your photo · 512px, this model\'s native size';
 }
 
 /// `fermatresearch/sdxl-outpainting-lora` — extends the canvas outwards and

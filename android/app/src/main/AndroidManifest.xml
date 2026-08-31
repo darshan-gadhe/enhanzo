@@ -37,6 +37,27 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Fall back to the Skia renderer instead of Impeller.
+
+             Not a precaution: Impeller's OpenGL ES backend aborts this app on
+             launch, and the abort names its own source line —
+
+               [FATAL:flutter/impeller/renderer/backend/gles/blit_pass_gles.cc(88)]
+               Check failed: result. Must be able to encode GL commands
+               without error.
+
+             — signal 6, before the first frame. Captured on an Android 16
+             emulator, and the same signature devices with weaker GLES drivers
+             report; a Xiaomi launch crash that could not be reproduced here
+             for weeks is very likely this.
+
+             Impeller is the better renderer where it works. It cannot be the
+             renderer on hardware where it aborts, and there is no way for the
+             app to detect that before it has already crashed. Revisit when
+             Flutter's GLES backend stops failing this check. -->
+        <meta-data
+            android:name="io.flutter.embedding.android.EnableImpeller"
+            android:value="false" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
