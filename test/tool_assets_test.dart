@@ -17,7 +17,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   final artKeys = <String>{
-    for (final category in Catalog.categories)
+    for (final category in Catalog.allCategories)
       for (final tool in category.tools)
         if (tool.art != null) tool.art!,
   };

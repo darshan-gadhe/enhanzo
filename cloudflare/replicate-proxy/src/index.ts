@@ -1,7 +1,7 @@
 import { authenticate, type Caller } from './auth';
 import { error, HttpError, json, logRequest } from './http';
 import { checkDailyQuota, enforceRateLimit, recordUsage } from './limits';
-import { projectFile, projectPrediction, validatePrediction, validatePredictionId } from './validate';
+import { modelsFrom, projectFile, projectPrediction, validatePrediction, validatePredictionId } from './validate';
 
 /**
  * The Replicate proxy.
@@ -166,7 +166,7 @@ async function createPrediction(request: Request, env: Env, ctx: ExecutionContex
 	const { used, key } = await checkDailyQuota(env.QUOTA, caller.device, quota);
 
 	const body = await request.json().catch(() => null);
-	const validated = validatePrediction(body, env.ALLOWED_MODEL_VERSION, Number.parseInt(env.MAX_SCALE, 10));
+	const validated = validatePrediction(body, modelsFrom(env), Number.parseInt(env.MAX_SCALE, 10));
 
 	// `Prefer: wait` lets a short run answer on the first call. The client's
 	// value is not trusted through: it is re-issued here, capped, so nobody can

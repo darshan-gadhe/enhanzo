@@ -970,9 +970,9 @@ class _ResultStep extends ConsumerWidget {
               AppSpacing.screenH,
               AppSpacing.x4,
             ),
-            child: state.outputLabel != null
+            child: state.resultSummary != null
                 ? Text(
-                    'Enhanced ${state.outputLabel}',
+                    state.resultSummary!,
                     textAlign: TextAlign.center,
                     style: AppText.captionMd(p.textSecondary),
                   )

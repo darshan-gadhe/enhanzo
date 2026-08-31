@@ -25,7 +25,7 @@ import 'dart:ui' as ui;
 import 'package:ai_enhancer/data/image_budget.dart';
 import 'package:ai_enhancer/data/image_ops.dart';
 import 'package:ai_enhancer/data/replicate/device_id.dart';
-import 'package:ai_enhancer/data/replicate/real_esrgan.dart';
+import 'package:ai_enhancer/data/replicate/tool_models.dart';
 import 'package:ai_enhancer/data/replicate/replicate_client.dart';
 import 'package:ai_enhancer/data/replicate/replicate_config.dart';
 import 'package:flutter/painting.dart';
@@ -113,11 +113,8 @@ void main() {
 
       final uploaded = await uploadRaw(source);
       var prediction = await client.createPrediction(
-        version: RealEsrgan.version,
-        input: RealEsrgan.inputFor(
-          imageUrl: uploaded,
-          preset: RealEsrgan.presetFor('AI Enhance')!,
-        ),
+        version: ToolModels.forTool('AI Enhance')!.version,
+        input: ToolModels.forTool('AI Enhance')!.inputFor(uploaded),
       );
       if (!prediction.isTerminal) {
         prediction = await client.awaitPrediction(prediction.id,
@@ -132,6 +129,56 @@ void main() {
       client.close();
     }
   }, timeout: const Timeout(Duration(minutes: 6)));
+
+  // Every tool the app claims a model for, run for real, one at a time.
+  for (final tool in ToolModels.supportedTools) {
+    test('TOOL — $tool completes end to end', () async {
+      final client = ReplicateClient();
+      try {
+        final model = ToolModels.forTool(tool)!;
+        final source = await photo1536();
+        final prepared = await ImageOps.prepareForUpload(
+          source,
+          aspectRatio: null,
+          targetPathWithoutExtension: '${sandbox.path}/${tool.hashCode}',
+        );
+        final uploaded = await client.uploadImage(prepared);
+        final input = model.inputFor(uploaded);
+        say('$tool -> ${model.runtimeType} (${model.label}), '
+            'input ${prepared.width}x${prepared.height}');
+
+        var prediction = await client.createPrediction(
+          version: model.version,
+          input: input,
+        );
+        if (!prediction.isTerminal) {
+          prediction = await client.awaitPrediction(prediction.id,
+              timeout: const Duration(minutes: 5));
+        }
+        say('$tool -> ${prediction.status}  ${prediction.error ?? ''}');
+        expect(prediction.isSucceeded, isTrue,
+            reason: '$tool failed: ${prediction.error}');
+
+        final bytes = await client.downloadOutput(prediction.outputUrl!);
+        say('$tool -> result ${bytes.length} bytes');
+        expect(bytes.length, greaterThan(1000));
+
+        // The result must be a real, decodable image the app can display.
+        final decoded = await decodeImageFromList(bytes);
+        say('$tool -> output ${decoded.width}x${decoded.height}');
+        // An upscaler must grow the image; a background remover keeps its
+        // size and changes what is in it.
+        if (model is RealEsrganModel) {
+          expect(decoded.width, greaterThan(prepared.width));
+        } else {
+          expect(decoded.width, greaterThan(0));
+        }
+        decoded.dispose();
+      } finally {
+        client.close();
+      }
+    }, timeout: const Timeout(Duration(minutes: 8)));
+  }
 
   test('STEP 2 — the same photo, prepared, succeeds', () async {
     final client = ReplicateClient();
@@ -148,11 +195,8 @@ void main() {
 
       final uploaded = await client.uploadImage(prepared);
       var prediction = await client.createPrediction(
-        version: RealEsrgan.version,
-        input: RealEsrgan.inputFor(
-          imageUrl: uploaded,
-          preset: RealEsrgan.presetFor('AI Enhance')!,
-        ),
+        version: ToolModels.forTool('AI Enhance')!.version,
+        input: ToolModels.forTool('AI Enhance')!.inputFor(uploaded),
       );
       say('prediction ${prediction.id}: ${prediction.status}');
       if (!prediction.isTerminal) {

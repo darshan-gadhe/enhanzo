@@ -16,11 +16,14 @@ class HomeScreen extends ConsumerWidget {
   /// (rather than positional) so the grid always launches the catalog entry it
   /// shows, and so these can be excluded from the list below without a second
   /// source of truth. Order here is the order they appear in the grid.
+  /// The four promoted onto the 2x2 grid. Every one must be a tool
+  /// [Catalog.categories] actually shows — this used to promote 'Object
+  /// Removal', which has no model and now isn't in the catalog at all.
   static const List<String> _topToolNames = [
     'AI Enhance',
     'HD Upscale',
     'Restore Photo',
-    'Object Removal',
+    'Remove BG',
   ];
 
   void _launch(WidgetRef ref, String tool) {

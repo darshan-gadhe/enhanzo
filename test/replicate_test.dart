@@ -15,6 +15,7 @@ import 'package:ai_enhancer/data/image_ops.dart';
 import 'package:ai_enhancer/data/replicate/enhance_job.dart';
 import 'package:ai_enhancer/data/replicate/model_errors.dart';
 import 'package:ai_enhancer/data/replicate/real_esrgan.dart';
+import 'package:ai_enhancer/data/replicate/tool_models.dart';
 import 'package:ai_enhancer/data/replicate/replicate_client.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter/services.dart';
@@ -96,12 +97,39 @@ void main() {
       });
     });
 
-    test('only the enhance tools claim a model', () {
-      expect(RealEsrgan.supports('HD Upscale'), isTrue);
-      expect(RealEsrgan.presetFor('HD Upscale')!.scale, 4);
-      // An upscaler cannot erase an object, so it does not pretend to.
-      expect(RealEsrgan.supports('Object Removal'), isFalse);
-      expect(RealEsrgan.presetFor('Remove BG'), isNull);
+    test('each tool maps to the model that can actually do it', () {
+      expect(ToolModels.forTool('HD Upscale'), isA<RealEsrganModel>());
+      expect(
+        (ToolModels.forTool('HD Upscale')! as RealEsrganModel).preset.scale,
+        4,
+      );
+      // An upscaler cannot cut out a background, so background removal runs on
+      // a background remover rather than being mapped onto the upscaler.
+      expect(ToolModels.forTool('Remove BG'), isA<BackgroundRemoverModel>());
+      // And a tool with no model does not pretend to have one.
+      expect(ToolModels.supports('Object Removal'), isFalse);
+      expect(ToolModels.forTool('Object Removal'), isNull);
+    });
+
+    test('the background remover asks for a transparent PNG', () {
+      final input = const BackgroundRemoverModel()
+          .inputFor(Uri.parse('https://api.replicate.com/v1/files/f'));
+      expect(input, {
+        'image': 'https://api.replicate.com/v1/files/f',
+        // JPEG cannot carry alpha; asking for it would composite onto black.
+        'format': 'png',
+        'background_type': 'rgba',
+        'threshold': 0,
+        'reverse': false,
+      });
+    });
+
+    test('every model pins a digest rather than following a tag', () {
+      for (final tool in ToolModels.supportedTools) {
+        final version = ToolModels.forTool(tool)!.version;
+        expect(version, contains(':'), reason: tool);
+        expect(version.split(':').last, hasLength(64), reason: tool);
+      }
     });
 
     test('createPrediction asks the server to hold the connection open', () async {
@@ -184,7 +212,7 @@ void main() {
         'GET /out/pred1.png',
       ]);
       expect(outcome.predictionId, 'pred1');
-      expect(outcome.preset.scale, 4);
+      expect(outcome.outputLabel, '4x');
       expect(await outcome.result.readAsBytes(), _resultBytes);
       expect(outcome.result.path, endsWith('pred1.png'));
       // The stages the processing screen reports, in the order they happen.
@@ -395,7 +423,9 @@ void main() {
       await expectLater(
         EnhanceJob(
           photo: await writePhoto(),
-          tool: 'Remove BG',
+          // Object removal needs a mask the app has no surface for, so it has
+          // no model and is not in the shown catalog.
+          tool: 'Object Removal',
           aspectRatio: null,
           client: client,
         ).run(),

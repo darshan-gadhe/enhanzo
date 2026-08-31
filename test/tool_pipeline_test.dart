@@ -13,10 +13,11 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:ai_enhancer/data/app_info.dart';
 import 'package:ai_enhancer/data/catalog.dart';
 import 'package:ai_enhancer/data/image_budget.dart';
 import 'package:ai_enhancer/data/replicate/enhance_job.dart';
-import 'package:ai_enhancer/data/replicate/real_esrgan.dart';
+import 'package:ai_enhancer/data/replicate/tool_models.dart';
 import 'package:ai_enhancer/data/replicate/replicate_client.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter/services.dart';
@@ -152,7 +153,7 @@ void main() {
   group('every tool backed by a model', () {
     // Read from the model's own table, so a tool added later is covered here
     // the day it is added rather than the day someone remembers.
-    for (final tool in RealEsrgan.supportedTools) {
+    for (final tool in ToolModels.supportedTools) {
       test('$tool sends a photo inside the GPU budget', () async {
         final upload = await runTool(tool);
 
@@ -172,23 +173,37 @@ void main() {
       });
     }
 
-    test('the four supported tools are the four this test covers', () {
+    test('the supported tools are exactly the ones this test covers', () {
       expect(
-        RealEsrgan.supportedTools,
+        ToolModels.supportedTools,
         containsAll(<String>[
           'AI Enhance',
           'HD Upscale',
           'Unblur',
           'Restore Photo',
+          'Remove BG',
         ]),
       );
-      expect(RealEsrgan.supportedTools, hasLength(4));
+      expect(ToolModels.supportedTools, hasLength(5));
     });
 
-    test('they all send the same prepared size — one layer, not four',
+    test('every shown tool has a model — the catalog cannot advertise a '
+        'dead one', () {
+      final shown = [
+        for (final category in Catalog.categories)
+          for (final tool in category.tools) tool.name,
+      ];
+      expect(shown, isNotEmpty);
+      for (final tool in shown) {
+        expect(ToolModels.supports(tool), isTrue, reason: '$tool is shown');
+      }
+      expect(shown.toSet(), ToolModels.supportedTools.toSet());
+    });
+
+    test('they all send the same prepared size — one layer, not five',
         () async {
       final sizes = <String, String>{};
-      for (final tool in RealEsrgan.supportedTools) {
+      for (final tool in ToolModels.supportedTools) {
         final upload = await runTool(tool);
         sizes[tool] = '${upload!.width}x${upload.height}';
       }
@@ -198,21 +213,27 @@ void main() {
   });
 
   group('catalog tools with no model behind them', () {
+    // Authored but not shown — see Catalog.allCategories.
     final unsupported = [
-      for (final category in Catalog.categories)
+      for (final category in Catalog.allCategories)
         for (final tool in category.tools)
-          if (!RealEsrgan.supports(tool.name)) tool.name,
+          if (!ToolModels.supports(tool.name)) tool.name,
     ];
 
-    test('there are some, and none of them claim a model', () {
+    test('they exist, none claim a model, and none are shown', () {
       expect(unsupported, isNotEmpty);
+      final shown = {
+        for (final category in Catalog.categories)
+          for (final tool in category.tools) tool.name,
+      };
       for (final tool in unsupported) {
-        expect(RealEsrgan.supports(tool), isFalse);
+        expect(ToolModels.supports(tool), isFalse);
+        expect(shown, isNot(contains(tool)),
+            reason: '$tool has no model and must not be advertised');
       }
     });
 
     for (final tool in [
-      'Remove BG',
       'Replace BG',
       'Object Removal',
       'Remove People',
@@ -225,6 +246,48 @@ void main() {
         await expectLater(runTool(tool), throwsA(isA<StateError>()));
       });
     }
+  });
+
+  group('what the app claims it can do', () {
+    test('each model describes its own result, in its own words', () {
+      expect(ToolModels.forTool('HD Upscale')!.resultSummary,
+          'Enhanced 4x');
+      // Not 'Enhanced Transparent PNG' — the result line is a sentence, not a
+      // badge with a prefix glued on.
+      expect(ToolModels.forTool('Remove BG')!.resultSummary,
+          isNot(startsWith('Enhanced ')));
+      for (final tool in ToolModels.supportedTools) {
+        final model = ToolModels.forTool(tool)!;
+        expect(model.label, isNotEmpty, reason: tool);
+        expect(model.resultSummary, isNotEmpty, reason: tool);
+      }
+    });
+
+    test('the premium benefits are things premium actually gives', () {
+      final claims = AppInfo.proBenefits.join(' | ').toLowerCase();
+
+      // Free users get every tool — the limit is on how many runs, not which
+      // tools — so "every tool unlocked" was never true.
+      expect(claims, isNot(contains('unlocked')));
+      // The app applies no watermark to anyone, so there is none to remove.
+      expect(claims, isNot(contains('watermark')));
+      // Inputs are capped to the model's GPU budget, so 8K is not a promise
+      // an ordinary photo can keep.
+      expect(claims, isNot(contains('8k')));
+
+      // What it does give.
+      expect(claims, contains('unlimited'));
+      expect(claims, contains('no ads'));
+    });
+
+    test('no tool subtitle promises a resolution the budget cannot reach', () {
+      for (final category in Catalog.categories) {
+        for (final tool in category.tools) {
+          expect(tool.desc.toLowerCase(), isNot(contains('8k')),
+              reason: tool.name);
+        }
+      }
+    });
   });
 
   group('subject preservation', () {

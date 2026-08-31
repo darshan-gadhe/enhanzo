@@ -34,9 +34,17 @@ class AppInfo {
   /// What a Pro subscription actually includes. The paywall and the Settings
   /// upgrade card read from this list, so neither can advertise something the
   /// other doesn't.
+  /// Two, because premium buys exactly two things and a third would have to be
+  /// invented.
+  ///
+  /// It used to claim "Every AI tool unlocked", "Exports up to 8K" and "No ads,
+  /// no watermarks". None of the three survived checking: every tool is
+  /// available to a free user (the limit is on how many runs, not which tools),
+  /// 8K is only reachable for an extreme panorama since inputs are capped to
+  /// the model's GPU budget, and the app has never applied a watermark to
+  /// anyone, so there is none to remove.
   static const List<String> proBenefits = [
-    'Every AI tool unlocked',
-    'Exports up to 8K',
-    'No ads, no watermarks',
+    'Unlimited enhancements',
+    'No ads',
   ];
 }

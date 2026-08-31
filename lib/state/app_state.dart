@@ -8,7 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/edits_store.dart';
 import '../data/image_ops.dart';
 import '../data/replicate/enhance_job.dart';
-import '../data/replicate/real_esrgan.dart';
+import '../data/replicate/tool_models.dart';
 import '../data/replicate/replicate_client.dart';
 import '../data/replicate/replicate_config.dart';
 import '../data/revenuecat/entitlement_source.dart';
@@ -119,6 +119,10 @@ class FlowState {
   /// never applied.
   final String? outputLabel;
 
+  /// The finished run described as a line the result screen can show. Null on
+  /// the simulated path, which has no model output to describe.
+  final String? resultSummary;
+
   /// Current stage of a running job, for the processing screen's caption and
   /// progress ceiling. Null while the simulated pipeline runs.
   final EnhancePhase? phase;
@@ -166,6 +170,7 @@ class FlowState {
     this.source,
     this.result,
     this.outputLabel,
+    this.resultSummary,
     this.phase,
     this.failure,
   });
@@ -198,6 +203,7 @@ class FlowState {
     File? source,
     File? result,
     String? outputLabel,
+    String? resultSummary,
     EnhancePhase? phase,
     String? failure,
     /// Drops the previous run's output, phase and failure — what starting or
@@ -217,6 +223,8 @@ class FlowState {
       source: clearRun ? source : (source ?? this.source),
       result: clearRun ? result : (result ?? this.result),
       outputLabel: clearRun ? outputLabel : (outputLabel ?? this.outputLabel),
+      resultSummary:
+          clearRun ? resultSummary : (resultSummary ?? this.resultSummary),
       phase: clearRun ? phase : (phase ?? this.phase),
       failure: clearRun ? failure : (failure ?? this.failure),
     );
@@ -450,13 +458,13 @@ class FlowController extends Notifier<FlowState> {
       fail("Enhancing isn't available right now. Please try again later.");
       return;
     }
-    if (!RealEsrgan.supports(state.displayTool)) {
+    if (!ToolModels.supports(state.displayTool)) {
       // Only the enhance tools have a model behind them. The rest keep their
       // place in the catalog, but on a real photo they say so instead of
       // returning demo art as if it were the user's edit.
       fail(
         '${state.displayTool} needs a model this build doesn\'t have yet. '
-        'Try ${RealEsrgan.supportedTools.join(', ')}.',
+        'Try ${ToolModels.supportedTools.join(', ')}.',
       );
       return;
     }
@@ -485,7 +493,8 @@ class FlowController extends Notifier<FlowState> {
         comparePos: 56,
         source: outcome.source,
         result: outcome.result,
-        outputLabel: outcome.preset.label,
+        outputLabel: outcome.outputLabel,
+        resultSummary: outcome.resultSummary,
         phase: EnhancePhase.done,
       );
       // The allowance is spent here and nowhere else: the model has run, the

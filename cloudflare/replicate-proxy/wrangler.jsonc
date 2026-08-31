@@ -14,10 +14,14 @@
 	// Non-secret configuration. THE REPLICATE TOKEN IS NOT HERE — it is a secret
 	// (`wrangler secret put REPLICATE_API_TOKEN`) and never appears in this file.
 	"vars": {
-		// The one model the proxy will run. A request naming anything else is
-		// rejected, so a stolen app key still cannot spend your credit on an
-		// expensive model of the attacker's choosing.
+		// The upscaler behind AI Enhance, HD Upscale, Unblur and Restore Photo.
+		// A request naming a version that is not listed here is rejected, so a
+		// stolen app key still cannot spend your credit on an expensive model of
+		// the attacker's choosing.
 		"ALLOWED_MODEL_VERSION": "daanelson/real-esrgan-a100:f94d7ed4a1f7e1ffed0d51e4089e4911609d5eeee5e874ef323d2c7562624bed",
+		// The background remover behind Remove BG. Optional: leave it out and
+		// the proxy simply runs the upscaler alone.
+		"BACKGROUND_MODEL_VERSION": "851-labs/background-remover:a029dff38972b5fda4ec5d75d7d1cd25aeff621d2cf4946a41055d7db66b80bc",
 		// Ceiling on the upscale factor a caller may ask for.
 		"MAX_SCALE": "4",
 		// Largest upload accepted, in bytes (12 MB).
@@ -61,6 +65,7 @@
 			"name": "replicate-proxy-staging",
 			"vars": {
 				"ALLOWED_MODEL_VERSION": "daanelson/real-esrgan-a100:f94d7ed4a1f7e1ffed0d51e4089e4911609d5eeee5e874ef323d2c7562624bed",
+				"BACKGROUND_MODEL_VERSION": "851-labs/background-remover:a029dff38972b5fda4ec5d75d7d1cd25aeff621d2cf4946a41055d7db66b80bc",
 				"MAX_SCALE": "4",
 				"MAX_UPLOAD_BYTES": "12582912",
 				"DAILY_PREDICTION_QUOTA": "10"

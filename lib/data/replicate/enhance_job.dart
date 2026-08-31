@@ -4,8 +4,8 @@ import 'dart:io';
 import '../edits_store.dart';
 import '../image_ops.dart';
 import 'model_errors.dart';
-import 'real_esrgan.dart';
 import 'replicate_client.dart';
+import 'tool_models.dart';
 
 /// The stages one enhance run passes through, in order.
 ///
@@ -54,13 +54,20 @@ class EnhanceOutcome {
   /// The model's output, saved on the device.
   final File result;
 
-  final RealEsrganPreset preset;
+  /// What the run actually did — the model's own parameters, for the result
+  /// screen and the history badge.
+  final String outputLabel;
+
+  /// The same fact as a line for the result screen.
+  final String resultSummary;
+
   final String predictionId;
 
   const EnhanceOutcome({
     required this.source,
     required this.result,
-    required this.preset,
+    required this.outputLabel,
+    required this.resultSummary,
     required this.predictionId,
   });
 }
@@ -105,10 +112,10 @@ class EnhanceJob {
   ///
   /// Throws [EnhanceCancelled] if abandoned, [ReplicateException] for anything
   /// the service reports, and [StateError] if [tool] has no model behind it —
-  /// callers check [RealEsrgan.supports] first.
+  /// callers check [ToolModels.supports] first.
   Future<EnhanceOutcome> run({void Function(EnhancePhase) onPhase = _ignore}) async {
-    final preset = RealEsrgan.presetFor(tool);
-    if (preset == null) {
+    final model = ToolModels.forTool(tool);
+    if (model == null) {
       throw StateError('$tool has no model behind it.');
     }
 
@@ -134,8 +141,8 @@ class EnhanceJob {
 
       onPhase(EnhancePhase.queued);
       var prediction = await _client.createPrediction(
-        version: RealEsrgan.version,
-        input: RealEsrgan.inputFor(imageUrl: uploaded, preset: preset),
+        version: model.version,
+        input: model.inputFor(uploaded),
       );
       _predictionId = prediction.id;
       _throwIfCancelled();
@@ -183,7 +190,8 @@ class EnhanceJob {
       return EnhanceOutcome(
         source: source,
         result: result,
-        preset: preset,
+        outputLabel: model.label,
+        resultSummary: model.resultSummary,
         predictionId: prediction.id,
       );
     } finally {
