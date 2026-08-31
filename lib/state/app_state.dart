@@ -16,6 +16,7 @@ import '../data/theme_store.dart';
 import '../models/models.dart';
 import '../widgets/demo_image.dart';
 import 'access_state.dart';
+import 'ads_state.dart';
 
 /// Top-level navigation destinations (the persistent tabs + paywall).
 ///
@@ -482,6 +483,13 @@ class FlowController extends Notifier<FlowState> {
     );
     _job = job;
     _startProgressEasing();
+
+    // Start caching the interstitial the save boundary will show, using the
+    // seconds the model is going to take anyway. Loading it *at* the boundary
+    // is what made ads arrive late or not at all: a load takes seconds, and by
+    // then the user has closed the flow and moved on. A premium user preloads
+    // nothing.
+    prepareBoundaryInterstitial(isPremium: ref.read(entitlementProvider).isPro);
 
     try {
       final outcome = await job.run(onPhase: _onPhase);

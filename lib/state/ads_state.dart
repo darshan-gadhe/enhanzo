@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:easy_audience_network/easy_audience_network.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -67,6 +70,12 @@ final adsBootstrapProvider = FutureProvider<void>((ref) async {
       }
       return true;
     }());
+
+    // Start caching the first interstitial now, so the first boundary has one
+    // ready rather than starting a multi-second load the user has already
+    // walked away from. This is also what installs the plugin's method-call
+    // handler early enough to catch an error Meta raises synchronously.
+    if (ok == true) unawaited(InterstitialAdService.preload());
   } catch (_) {
     // No ads this session; the interstitial service checks its own
     // preconditions and reports "unavailable" rather than depending on this
@@ -100,5 +109,17 @@ Future<InterstitialOutcome> showBoundaryInterstitial({
   required bool isPremium,
 }) async {
   if (isPremium) return InterstitialOutcome.unavailable;
-  return InterstitialAdService.showInterstitial(cooldown: Duration.zero);
+  return InterstitialAdService.showIfReady(cooldown: Duration.zero);
+}
+
+/// Starts caching the interstitial that the *next* boundary will show.
+///
+/// Called when an enhancement begins, which buys the load the seconds it needs
+/// while the model is running — the difference between an ad that is ready at
+/// the boundary and one that arrives after the user has moved on.
+///
+/// A premium user preloads nothing: no request, no cached ad, no cost.
+void prepareBoundaryInterstitial({required bool isPremium}) {
+  if (isPremium) return;
+  unawaited(InterstitialAdService.preload());
 }

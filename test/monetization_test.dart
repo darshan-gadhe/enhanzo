@@ -171,6 +171,37 @@ void main() {
     });
   });
 
+  group('clearing app data', () {
+    test('resets the free allowance, because that is where it lives', () async {
+      final c = makeContainer(FakeStore(premium: false));
+      await boot(c);
+      await succeed(c);
+      await succeed(c);
+      await succeed(c);
+      expect(c.read(accessProvider).canGenerate, isFalse);
+
+      // What Android does to SharedPreferences on "Clear data".
+      SharedPreferences.setMockInitialValues({});
+
+      final fresh = makeContainer(FakeStore(premium: false));
+      final state = await boot(fresh);
+      expect(state.freeUsed, 0);
+      expect(state.freeRemaining, 3);
+      expect(state.canGenerate, isTrue);
+      // And it is a new install again, so the paywall is offered once more.
+      expect(state.onboardingSeen, isFalse);
+    });
+
+    test('does not resurrect premium — that comes from the store', () async {
+      SharedPreferences.setMockInitialValues({});
+      final c = makeContainer(FakeStore(premium: true));
+      final state = await boot(c);
+      expect(state.isPremium, isTrue,
+          reason: 'clearing local data cannot cancel a real subscription');
+      expect(state.canGenerate, isTrue);
+    });
+  });
+
   group('restart and force close', () {
     for (final used in [1, 2, 3]) {
       test('$used used, force close, reopen — still $used', () async {
@@ -366,6 +397,35 @@ void main() {
         ),
         isFalse,
       );
+    });
+
+    test('premium starts no preload either — not one request', () async {
+      InterstitialAdService.resetForTest();
+      prepareBoundaryInterstitial(isPremium: true);
+      await pumpEventQueue();
+      expect(InterstitialAdService.loads, 0);
+      expect(InterstitialAdService.attempts, 0);
+    });
+
+    test('the free-generation counter never blocks the ad itself', () async {
+      // The allowance gates whether an enhancement may *run*. Once one has
+      // run and been saved, the ad at that boundary must not be second-guessed
+      // by the same counter — including on the third and last one, where
+      // remaining is about to hit zero.
+      InterstitialAdService.resetForTest();
+      final c = makeContainer(FakeStore(premium: false));
+      await boot(c);
+
+      await succeed(c);
+      await succeed(c);
+      await succeed(c);
+      expect(c.read(accessProvider).freeRemaining, 0);
+
+      await showBoundaryInterstitial(
+        isPremium: c.read(accessProvider).isPremium,
+      );
+      expect(InterstitialAdService.attempts, 1,
+          reason: 'the last free enhancement still gets its ad');
     });
 
     test('each of the three free enhancements gets its own attempt', () async {
