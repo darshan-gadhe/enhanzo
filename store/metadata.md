@@ -1,169 +1,205 @@
-# Enhanzo — Store Metadata (text only)
+# Enhanzo — Play Store Metadata
 
-Just the copy fields, ready to paste into App Store Connect / Play Console.
-For screenshot/icon specs, the blockers checklist, and privacy-table
-reasoning, see `store/LISTING.md`.
+Copy fields, ready to paste into Play Console. Screenshot and icon specs, the
+release checklist and the privacy-table reasoning live in `store/LISTING.md`;
+keyword research lives in `store/aso-keywords.md`; what actually moves ranking
+is in `store/aso-strategy.md`.
+
+**Android only.** The App Store section that used to sit here has been removed
+along with the rest of the iOS build — there is no Apple listing to fill in.
+
+## What changed, and why it mattered
+
+The previous copy described an app that no longer exists, in three ways that
+each cost ranking rather than earning it:
+
+- **It never mentioned background removal.** Remove BG ships now, and
+  "background remover" is one of the highest-volume queries in the category.
+  It appeared nowhere in the listing and nowhere in the 2,577-term keyword
+  bank.
+- **It promised 8K exports.** Inputs are capped to the model's GPU budget, so
+  a typical photo now tops out around 6K. Every "8K" was removed rather than
+  left to be discovered by a reviewer or a refund request.
+- **It promised watermark removal.** The app has never applied a watermark to
+  anyone, so there was none to remove, and "unlock every AI tool" was wrong
+  too: free users get every tool — the limit is on how many runs, not which
+  tools.
+
+Keywords that describe features you do not have are worse than no keywords.
+They win installs from people looking for something else, who then uninstall —
+and retention is a ranking input.
 
 ---
 
-## App Store (Apple)
+## Title
 
-**App Name** (30 char max — 26 used)
+`30 char max — 26 used`
+
 ```
 Enhanzo: AI Photo Enhancer
 ```
 
-**Subtitle** (30 char max — 25 used)
+The single most heavily weighted field. Brand first, then the head term
+"AI Photo Enhancer" exactly as people type it.
+
+**Variants worth running as a Play Console store listing experiment** — see
+`aso-strategy.md`, this is free and you are not using it:
+
 ```
-Unblur, Restore & Upscale
+Enhanzo: AI Photo Enhancer          (26)  — control, head term
+Enhanzo: Unblur & Enhance Photo     (29)  — leads with the strongest verb
+Enhanzo: Photo Enhancer & BG        (28)  — buys the background-remover query
 ```
-
-**Promotional Text** (170 char max — 156 used)
-```
-Turn blurry, low-res or damaged photos into sharp, clear images in one tap. AI-powered enhancement, upscaling up to 8K, and face restoration for old photos.
-```
-
-**Keywords** (100 bytes max — 99 used)
-```
-image,hd,4k,8k,resolution,blur,sharpen,face,repair,old,damaged,background,remove,bg,upscaler,deblur
-```
-
-**Description**
-```
-Enhanzo turns blurry, low-resolution, or damaged photos into sharp, clear
-images — right on your phone, no computer or editing skill required.
-
-WHAT ENHANZO DOES
-
-AI Enhance
-A one-tap quality boost for any photo. Sharper detail, cleaner color, better
-overall clarity.
-
-HD Upscale
-Increase a photo's resolution for printing or a bigger, clearer view — up to
-8K export.
-
-Unblur
-Fix a photo that came out blurry from motion or missed focus. Recover detail
-that looked lost.
-
-Restore Photo
-Repair an old, faded, or damaged family photo, with face restoration built in
-for portraits.
-
-HOW IT WORKS
-
-1. Choose a photo from your library or take a new one.
-2. Pick a tool and frame your crop.
-3. Enhanzo processes it and shows you a before/after comparison you can drag
-   through side by side.
-4. Save it to your history or share the result.
-
-BUILT FOR REAL PHOTOS
-
-Enhanzo is built around one honest before/after comparison, everywhere in the
-app — what you see is what the tool actually did to your photo, not a
-simulated preview. Export sizes go up to 8K for printing or archiving.
-
-PRIVACY
-
-Your photo is sent only to the enhancement service needed to process it —
-never sold, never used for advertising, and there's no account or login
-required to use the app.
-
-ENHANZO PRO
-
-A subscription unlocks every AI tool, exports up to 8K, and removes ads and
-watermarks. Weekly and yearly plans are available, both with pricing shown
-before you subscribe.
-
-Subscriptions renew automatically unless cancelled at least 24 hours before
-the end of the current period. Manage or cancel anytime in your Apple ID
-account settings. See our Terms of Use and Privacy Policy for full details.
-
-Questions or feedback? Reach us anytime — we read every message.
-```
-
-**What's New / Release Notes** (v1.0.0)
-```
-Welcome to Enhanzo.
-
-• AI Enhance, HD Upscale, Unblur, and Restore Photo — four AI tools for
-  turning a blurry, low-res, or damaged photo into a sharp one.
-• Export up to 8K.
-• A real before/after comparison for every edit, not a simulated preview.
-• Your finished edits collect in History so you can revisit or share them
-  anytime.
-
-Thanks for trying Enhanzo — we'd love your feedback.
-```
-
-**Category:** Photo & Video (primary) · Utilities (secondary)
 
 ---
 
-## Google Play Store
+## Short description
 
-**Title** (30 char max — 27 used)
-```
-Enhanzo - AI Photo Enhancer
-```
+`80 char max — 72 used`
 
-**Short description** (80 char max — 67 used)
 ```
-Restore old photos, unblur pictures & upscale images to HD with AI.
+Unblur photos, restore old pictures, upscale to HD & remove backgrounds.
 ```
 
-**Full description**
+Second-heaviest field, and shown above the fold. Four distinct high-volume
+intents in one line: unblur, restore old, upscale HD, remove background.
+
+---
+
+## Full description
+
+`4000 char max — 3349 used`
+
+The previous version used 1,477 of 4,000 — 63% of the largest indexed field on
+Play left empty. This one earns the space with real use cases and natural
+keyword placement rather than repetition, which Play's spam policy penalises.
+
 ```
-Enhanzo is an AI photo enhancer that restores old, damaged, and blurry
-photos in one tap. Fix a grainy old family photo, unblur a picture that's
-out of focus, or upscale a low-resolution image to HD, 4K, or 8K — with face
-restoration built in for portraits and old scans.
+Enhanzo is an AI photo enhancer that makes blurry, low-resolution, old and
+damaged pictures look sharp again — in one tap, on your phone, with no editing
+skill and no desktop software.
+
+Unblur a photo that came out soft. Restore an old family picture that has
+faded or been scratched. Upscale a small, pixelated image so it holds up
+printed or on a big screen. Cut a subject out of its background into a clean
+transparent PNG. Every result comes back as a real before/after you can drag
+through — the actual output, never a simulated preview.
 
 WHAT YOU CAN DO
 
-• AI Enhance — a one-tap quality boost for any photo
-• HD Upscale — increase photo resolution up to 8K
-• Unblur — fix motion blur and out-of-focus shots
-• Restore Photo — repair old, damaged, and faded family photos, with face
-  restoration for portraits
+• AI Enhance — a one-tap quality boost for any picture. Sharper detail,
+  cleaner colour, better overall photo quality, with face enhancement built in
+  for portraits.
 
-WHO IT'S FOR
+• HD Upscale — an AI image upscaler that increases photo resolution up to 4x.
+  Turn a small or low-resolution photo into a high-resolution one for printing,
+  framing or posting.
 
-Whether you're digitizing old family photos, preparing an image to print
-at a larger size, or just want to fix a pixelated picture before sharing it,
-Enhanzo turns a low-quality photo into a sharp, clear one — right from your
-phone.
+• Unblur — fix motion blur and out-of-focus shots. A blurry photo fixer that
+  recovers detail that looked lost, rather than just sharpening edges.
+
+• Restore Photo — old photo restoration for faded, grainy, scratched and
+  damaged prints, with AI face restoration for portraits. Ideal for scanning
+  and reviving old family photographs.
+
+• Remove BG — an automatic background remover. It cuts out the subject and
+  returns a transparent PNG, ready to drop onto a new background, a product
+  listing, a sticker or a profile picture.
+
+WHO ENHANZO IS FOR
+
+• Anyone digitising old family photos, scans and albums
+• Anyone with a blurry, grainy or pixelated picture worth saving
+• Sellers and small businesses who need clean product cut-outs
+• People preparing a photo to print, frame or enlarge
+• Anyone who wants a picture to look better before sharing it
 
 HOW IT WORKS
 
-Pick a photo, choose a tool, and Enhanzo shows you an honest before/after
-comparison you can drag through — the exact result, not a simulated preview.
-Save your edit to History or share it directly.
+1. Pick a photo from your gallery, or take a new one.
+2. Choose a tool and frame your crop — or keep the whole picture as it is.
+3. Enhanzo processes it and shows you an honest before/after comparison.
+4. Save it to your History, or share it straight out of the app.
+
+Nothing is cropped away unless you ask for it. Photos are resized
+proportionally so the whole composition — and everyone in it — reaches the AI
+intact.
+
+BUILT AROUND AN HONEST RESULT
+
+Enhanzo shows the same before/after comparison everywhere in the app, on your
+own photo. What you see is what the tool actually did — not a stock demo, not
+a filtered preview. Your finished edits collect in History so you can revisit,
+re-share or delete them later.
 
 PRIVACY, PLAINLY
 
-Your photo is sent only to the service that processes it. Enhanzo has no ad
-tracking, no account required, and doesn't sell your data.
+No account and no sign-up. Your photo is sent only to the AI service that
+processes it, and is never sold or used to train anything. Edits stay on your
+device and are cleared automatically after 30 days. Full policy in the app
+under Settings.
 
-ENHANZO PRO
+FREE AND PREMIUM
 
-Unlock every AI tool, export up to 8K, and remove ads and watermarks with a
-Weekly or Yearly subscription. Pricing is shown clearly before you subscribe,
-and subscriptions can be managed or cancelled anytime from Google Play.
+Enhanzo is free to try — every tool is available on the free tier, with three
+enhancements included and occasional full-screen ads between edits.
 
-Have feedback or found an issue? We read every message — reach out anytime.
+Enhanzo Premium gives you unlimited enhancements and removes ads. Weekly and
+yearly plans are available, and the price is shown before you subscribe.
+Subscriptions renew automatically unless cancelled at least 24 hours before
+the period ends, and can be managed or cancelled anytime in Google Play.
+
+Questions, a photo that did not come out right, or a feature you want? We read
+every message — get in touch from Settings.
 ```
-
-**Category:** Photography
-
-**Tags** (pick up to 5 from Play Console's suggested list): `Photo Editor` ·
-`AI` · `Photography Tools` · `Image Editor` · `Photo & Video`
 
 ---
 
-## Copyright line (both stores)
+## What's new / release notes
+
+`500 char max — 376 used`
+
+```
+• Remove BG — cut any subject out into a transparent PNG.
+• Big reliability work on the enhancer: large photos are now resized safely
+  before processing, so oversized pictures no longer fail.
+• Clearer errors instead of technical messages when something goes wrong.
+• Faster, more stable enhancement across every tool.
+
+Thanks for using Enhanzo — tell us what to build next.
+```
+
+---
+
+## Category and tags
+
+**Category:** Photography
+
+**Tags** (up to 5, from Play Console's fixed list):
+`Photo Editor` · `AI` · `Photography Tools` · `Image Editor` · `Photo & Video`
+
+---
+
+## Subscription disclosure
+
+Play requires the subscription terms to be legible before purchase. They are
+stated in the full description above and rendered by RevenueCat's hosted
+paywall from your Play offer — the app hardcodes no price and no trial.
+
+**If your Play offer includes the 3-day free trial**, add this line to the
+FREE AND PREMIUM section. Only add it if the offer is actually live, and check
+it with the offering diagnostic (`OfferingDiagnostics`, debug builds) rather
+than assuming:
+
+```
+New subscribers start with a 3-day free trial. Cancel any time before it ends
+and you will not be charged.
+```
+
+---
+
+## Copyright line
+
 ```
 © 2026 techneoo. All rights reserved.
 ```

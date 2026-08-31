@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/catalog.dart';
+import '../../data/review_prompt.dart';
 import '../../models/models.dart';
 import '../../state/ads_state.dart';
 import '../../state/app_state.dart';
@@ -1026,6 +1027,11 @@ class _ResultStep extends ConsumerWidget {
                           );
                       flow.close();
                       _maybeShowInterstitial(ref);
+                      // A save is the app's clearest success moment: the user
+                      // looked at the result and chose to keep it. Asking for
+                      // a rating anywhere else — after an error, or before
+                      // they have seen it work twice — earns one star.
+                      unawaited(ReviewPrompt.recordSaveAndMaybeAsk());
                       AppHaptics.success();
                       // States plainly what happened. The old copy claimed the
                       // file had been written to the device at a given

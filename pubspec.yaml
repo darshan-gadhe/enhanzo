@@ -65,6 +65,12 @@ dependencies:
   # Gradle `namespace` and pins AGP 3.6.0 / compileSdk 28, which AGP 8
   # rejects outright.
   easy_audience_network: ^0.0.7
+  # Google's In-App Review API — the rating sheet shown inside the app.
+  # Settings' "Rate Enhanzo" row opens the Play listing in a browser, which
+  # most people never return from; rating is a heavy Play ranking signal and
+  # this is what actually earns reviews. See lib/data/review_prompt.dart for
+  # when it is allowed to ask.
+  in_app_review: ^2.0.12
 
 dev_dependencies:
   flutter_test:

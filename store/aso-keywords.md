@@ -1,6 +1,17 @@
 # ASO Keyword Bank — Enhanzo: AI Photo Enhancer
 
-**2577 unique keywords**, deduplicated and grouped by search intent.
+**2728 unique keywords**, deduplicated and grouped by search intent.
+
+Two corrections since the first version, both about accuracy rather than
+volume:
+
+- **Added a background-removal cluster** (181 terms). Remove BG
+  ships now and the bank had nothing for it.
+- **Removed 30 terms** targeting watermark removal and 8K
+  export. The app does neither: it has never applied a watermark, and
+  inputs are capped to the model's GPU budget so a typical photo tops out
+  around 6K. Ranking for a promise you cannot keep buys an install and
+  loses a user, and retention feeds back into rank.
 
 ## Read this first
 
@@ -1388,22 +1399,6 @@ full hd resolution booster
 4k make photo bigger
 4k zoom enhance
 4k resolution booster
-8k photo upscaler
-8k image upscaler
-8k picture upscaler
-8k photo enlarger
-8k image enlarger
-8k upscale photo
-8k enlarge photo
-8k resize photo
-8k increase resolution
-8k improve resolution
-8k photo resizer
-8k image resizer
-8k photo quality increaser
-8k make photo bigger
-8k zoom enhance
-8k resolution booster
 1080p photo upscaler
 1080p image upscaler
 1080p picture upscaler
@@ -2203,6 +2198,201 @@ pet photo unblur
 pet photo touch up
 ```
 
+## Background removal & cut-outs
+
+_181 terms_
+
+Added when Remove BG shipped. The bank previously had **zero** coverage
+here — not one term for "background remover", which is among the highest
+volume queries in the Photography category and is now a tool the app
+actually has.
+
+```
+remove background
+erase background
+delete background
+cut out background
+clear background
+remove bg
+erase bg
+delete bg
+cut out bg
+clear bg
+remove photo background
+erase photo background
+delete photo background
+cut out photo background
+clear photo background
+remove image background
+erase image background
+delete image background
+cut out image background
+clear image background
+remove picture background
+erase picture background
+delete picture background
+cut out picture background
+clear picture background
+background remover
+background remove
+background removal
+background eraser
+background erase
+background delete
+background cut out
+background cutout
+background clear
+background changer
+background editor
+bg remover
+bg remove
+bg removal
+bg eraser
+bg erase
+bg delete
+bg cut out
+bg cutout
+bg clear
+bg changer
+bg editor
+photo background remover
+photo background remove
+photo background removal
+photo background eraser
+photo background erase
+photo background delete
+photo background cut out
+photo background cutout
+photo background clear
+photo background changer
+photo background editor
+image background remover
+image background remove
+image background removal
+image background eraser
+image background erase
+image background delete
+image background cut out
+image background cutout
+image background clear
+image background changer
+image background editor
+picture background remover
+picture background remove
+picture background removal
+picture background eraser
+picture background erase
+picture background delete
+picture background cut out
+picture background cutout
+picture background clear
+picture background changer
+picture background editor
+photo bg remover
+photo bg remove
+photo bg removal
+photo bg eraser
+photo bg erase
+photo bg delete
+photo bg cut out
+photo bg cutout
+photo bg clear
+photo bg changer
+photo bg editor
+background remover app
+background remover ai
+background remover free
+background remover online
+background remover automatic
+background remover auto
+background remover hd
+background remover for photos
+background remover for pictures
+background remover one tap
+background remover instant
+background eraser app
+background eraser ai
+background eraser free
+background eraser online
+background eraser automatic
+background eraser auto
+background eraser hd
+background eraser for photos
+background eraser for pictures
+background eraser one tap
+background eraser instant
+remove background app
+remove background ai
+remove background free
+remove background online
+remove background automatic
+remove background auto
+remove background hd
+remove background for photos
+remove background for pictures
+remove background one tap
+remove background instant
+bg remover app
+bg remover ai
+bg remover free
+bg remover online
+bg remover automatic
+bg remover auto
+bg remover hd
+bg remover for photos
+bg remover for pictures
+bg remover one tap
+bg remover instant
+transparent background
+transparent png
+make background transparent
+transparent background maker
+png maker
+png cutout
+transparent image
+no background
+photo without background
+image without background
+picture without background
+white background remover
+change background colour
+change background color
+subject cutout
+cut out subject
+cut out person
+cut out object
+cut out product
+isolate subject
+extract subject
+photo cutout
+auto cutout
+ai cutout
+ai background remover
+ai remove background
+ai background eraser
+smart background remover
+one tap background remover
+instant background remover
+product photo background remover
+ecommerce background remover
+product cutout app
+listing photo background
+profile picture background
+pfp background remover
+sticker maker from photo
+photo sticker cutout
+passport photo background
+id photo background
+logo background remover
+signature background remover
+headshot background remover
+resume photo background
+catalog photo cutout
+marketplace photo background
+```
+
+---
+
 ## Intent & long tail
 
 _160 terms_
@@ -2529,20 +2719,6 @@ offline image enhancer app
 offline photo restorer
 offline hd photo app
 offline 4k photo app
-no watermark photo enhancer
-no watermark photo editor
-no watermark photo restoration app
-no watermark image upscaler
-no watermark photo quality app
-no watermark picture enhancer
-no watermark ai photo app
-no watermark photo repair app
-no watermark photo fixer app
-no watermark photo unblur app
-no watermark image enhancer app
-no watermark photo restorer
-no watermark hd photo app
-no watermark 4k photo app
 unlimited photo enhancer
 unlimited photo editor
 unlimited photo restoration app
