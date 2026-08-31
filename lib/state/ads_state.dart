@@ -1,4 +1,5 @@
 import 'package:easy_audience_network/easy_audience_network.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/ads/ad_config.dart';
@@ -22,9 +23,23 @@ import '../data/ads/interstitial_ad_service.dart';
 /// per-attempt state to track: interstitials are fire-and-forget, and
 /// [InterstitialAdService] owns its own in-flight flag and cooldown.
 final adsBootstrapProvider = FutureProvider<void>((ref) async {
-  if (!AdConfig.isSupportedPlatform) return;
+  if (!AdConfig.isSupportedPlatform) {
+    assert(() {
+      debugPrint('Meta: not an Android build — no ads will be requested.');
+      return true;
+    }());
+    return;
+  }
+  if (!AdConfig.isInterstitialConfigured) {
+    assert(() {
+      debugPrint('Meta: no placement compiled in. Rebuild with '
+          '--dart-define-from-file=.env');
+      return true;
+    }());
+    return;
+  }
   try {
-    await EasyAudienceNetwork.init(
+    final ok = await EasyAudienceNetwork.init(
       testMode: AdConfig.testMode,
       // Only in a test build, and only if a hash was actually supplied —
       // passing it in release would register a real user's device as a
@@ -33,10 +48,33 @@ final adsBootstrapProvider = FutureProvider<void>((ref) async {
           ? AdConfig.testingDeviceHash
           : null,
     );
+    // The SDK reports whether it came up, and this used to discard it. When
+    // ads then failed to appear there was nothing to distinguish "the SDK
+    // never initialised" from "Meta had no ad to give", which are different
+    // problems with different fixes.
+    assert(() {
+      debugPrint(
+        'Meta init: ${ok == true ? 'ok' : 'FAILED ($ok)'} · '
+        'testMode=${AdConfig.testMode} · '
+        'testDeviceHash=${AdConfig.testingDeviceHash.isEmpty ? 'none' : 'set'}',
+      );
+      if (AdConfig.testMode && AdConfig.testingDeviceHash.isEmpty) {
+        debugPrint(
+          'Meta: test mode with no device hash. The SDK usually refuses test '
+          'ads until the device is registered — copy the hash it logs into '
+          'META_TESTING_DEVICE_HASH in .env and relaunch.',
+        );
+      }
+      return true;
+    }());
   } catch (_) {
     // No ads this session; the interstitial service checks its own
     // preconditions and reports "unavailable" rather than depending on this
     // having succeeded.
+    assert(() {
+      debugPrint('Meta init threw — no ads this session.');
+      return true;
+    }());
   }
 });
 

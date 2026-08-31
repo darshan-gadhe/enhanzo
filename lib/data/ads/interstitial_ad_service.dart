@@ -116,6 +116,14 @@ class InterstitialAdService {
     attempts++;
     if (!AdConfig.isSupportedPlatform ||
         !AdConfig.isInterstitialConfigured) {
+      assert(() {
+        debugPrint(
+          'Meta interstitial skipped: '
+          'android=${AdConfig.isSupportedPlatform} '
+          'placement=${AdConfig.isInterstitialConfigured}',
+        );
+        return true;
+      }());
       return InterstitialOutcome.unavailable;
     }
     // The true duplicate guard, independent of any interval: one attempt at a
@@ -151,13 +159,36 @@ class InterstitialAdService {
                 )),
           );
         },
+        onDisplayed: () {
+          assert(() {
+            debugPrint('Meta interstitial displayed.');
+            return true;
+          }());
+        },
         onDismissed: () {
           // Stamped on a real display, not on a load attempt: a no-fill must
           // not start a cooldown and silence the next genuine opportunity.
           _lastShownAt = DateTime.now();
           finish(InterstitialOutcome.shown);
         },
-        onError: (_, _) => finish(InterstitialOutcome.unavailable),
+        onError: (code, message) {
+          // Meta's code is the whole diagnosis and it used to be thrown away.
+          // 1001 is "no fill" — the placement works, Meta simply had nothing
+          // to serve, which is what a new or unapproved app gets every time
+          // and is not a bug in this code. Anything else usually is.
+          assert(() {
+            debugPrint('Meta interstitial error $code: $message');
+            if (code == 1001) {
+              debugPrint(
+                'Meta: no fill. The request reached Meta and was answered '
+                'with "no ad". Common and expected until the app and its '
+                'placement are approved in Monetization Manager.',
+              );
+            }
+            return true;
+          }());
+          finish(InterstitialOutcome.unavailable);
+        },
       );
 
       // Backstop for a load that reports nothing at all — which is exactly
