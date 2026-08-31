@@ -339,7 +339,31 @@ class FlowController extends Notifier<FlowState> {
       _beginProcessing();
       return;
     }
+    // Checked here as well as in [_beginProcessing], and for a different
+    // reason: the settings step is real work. Sending an exhausted user in to
+    // paint a mask and only refusing them at the end throws away everything
+    // they just did for a run that was never going to start.
+    if (!_mayGenerate()) {
+      _refuseForUpgrade();
+      return;
+    }
     state = state.copyWith(step: EditFlow.settings);
+  }
+
+  /// Whether a run on a real photo is allowed right now.
+  bool _mayGenerate() =>
+      state.photo == null || ref.read(accessProvider).canGenerate;
+
+  /// Moves to the refusal that asks for the paywall. Nothing is uploaded, no
+  /// prediction is created, and no allowance is spent.
+  void _refuseForUpgrade() {
+    _stopProgressTimer();
+    state = state.copyWith(
+      step: EditFlow.error,
+      clearRun: true,
+      failure: freeLimitMessage,
+      needsUpgrade: true,
+    );
   }
 
   /// Records what the settings step collected.
@@ -372,6 +396,11 @@ class FlowController extends Notifier<FlowState> {
       progress: 0,
       comparePos: 56,
       clearRun: true,
+      // A mask painted over one tool's target, or a prompt written for it, is
+      // meaningless to the next tool — and worse than meaningless when it
+      // silently satisfies the next tool's "ready" check with a region the
+      // user never chose for it.
+      options: const ToolOptions(),
     );
   }
 
@@ -475,14 +504,8 @@ class FlowController extends Notifier<FlowState> {
     // check. Nothing is uploaded, no prediction is created, no ad is
     // requested and no allowance is spent: the flow asks for the paywall
     // instead (see FlowState.needsUpgrade).
-    if (photo != null && !ref.read(accessProvider).canGenerate) {
-      _stopProgressTimer();
-      state = state.copyWith(
-        step: EditFlow.error,
-        clearRun: true,
-        failure: freeLimitMessage,
-        needsUpgrade: true,
-      );
+    if (!_mayGenerate()) {
+      _refuseForUpgrade();
       return;
     }
     if (photo == null) {
