@@ -1,0 +1,367 @@
+<title>Enhanzo Data Safety</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground: #FBFCFB;
+    --raised: #FFFFFF;
+    --ink: #141917;
+    --ink-soft: #4C5A54;
+    --ink-faint: #77857E;
+    --rule: #E1E8E4;
+    --rule-strong: #C9D4CE;
+    --accent: #0E6B5B;
+    --accent-soft: #E6F1ED;
+    --flag: #8A5A00;
+    --flag-soft: #FBF0DC;
+    --no: #6B7671;
+    --no-soft: #EEF1EF;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #101512;
+      --raised: #171E1A;
+      --ink: #E8EFEA;
+      --ink-soft: #A3B2AA;
+      --ink-faint: #7E8D86;
+      --rule: #26312B;
+      --rule-strong: #36443C;
+      --accent: #5FCDB4;
+      --accent-soft: #14312A;
+      --flag: #E0AE5B;
+      --flag-soft: #33280F;
+      --no: #8A9691;
+      --no-soft: #1E2622;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #101512;
+    --raised: #171E1A;
+    --ink: #E8EFEA;
+    --ink-soft: #A3B2AA;
+    --ink-faint: #7E8D86;
+    --rule: #26312B;
+    --rule-strong: #36443C;
+    --accent: #5FCDB4;
+    --accent-soft: #14312A;
+    --flag: #E0AE5B;
+    --flag-soft: #33280F;
+    --no: #8A9691;
+    --no-soft: #1E2622;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 60rem;
+    margin: 0 auto;
+    padding: clamp(2rem, 5vw, 4.5rem) clamp(1.1rem, 4vw, 2.5rem) 6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+  }
+
+  h1, h2, h3 { font-family: Newsreader, Georgia, serif; font-weight: 600; text-wrap: balance; margin: 0; }
+  h1 { font-size: clamp(2rem, 5vw, 2.9rem); line-height: 1.12; letter-spacing: -0.015em; }
+  h2 { font-size: 1.5rem; line-height: 1.2; }
+  h3 { font-size: 1.08rem; line-height: 1.3; }
+  p { margin: 0; }
+  a { color: var(--accent); }
+
+  .eyebrow {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-family: "IBM Plex Mono", monospace;
+  }
+  .lede { font-size: 1.1rem; color: var(--ink-soft); max-width: 40rem; }
+  code, .mono { font-family: "IBM Plex Mono", monospace; font-size: 0.88em; }
+
+  header { display: flex; flex-direction: column; gap: 0.9rem; }
+
+  section { display: flex; flex-direction: column; gap: 1.25rem; }
+  .section-head { display: flex; flex-direction: column; gap: 0.4rem; padding-bottom: 0.7rem; border-bottom: 1px solid var(--rule-strong); }
+
+  /* The rejection notice */
+  .cause {
+    background: var(--flag-soft);
+    border: 1px solid var(--flag);
+    border-radius: 3px;
+    padding: 1.4rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+  }
+  .cause h2 { font-size: 1.2rem; }
+  .cause pre {
+    margin: 0;
+    overflow-x: auto;
+    background: var(--raised);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    padding: 0.8rem 1rem;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: var(--ink);
+  }
+
+  /* Data type records */
+  .record {
+    background: var(--raised);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    border-radius: 3px;
+    padding: 1.3rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .record.flagged { border-left-color: var(--flag); }
+  .record-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem 0.9rem; }
+  .cat { font-family: "IBM Plex Mono", monospace; font-size: 0.78rem; color: var(--ink-faint); letter-spacing: 0.04em; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .chip {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 0.24rem 0.55rem;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+  .chip.yes { background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent); }
+  .chip.no { background: var(--no-soft); color: var(--no); border: 1px solid var(--rule-strong); }
+  .chip.warn { background: var(--flag-soft); color: var(--flag); border: 1px solid var(--flag); }
+
+  dl { margin: 0; display: grid; grid-template-columns: 11rem 1fr; gap: 0.55rem 1.2rem; }
+  dt { font-size: 0.82rem; font-weight: 600; color: var(--ink-faint); letter-spacing: 0.02em; }
+  dd { margin: 0; font-size: 0.94rem; color: var(--ink); }
+  @media (max-width: 34rem) {
+    dl { grid-template-columns: 1fr; gap: 0.15rem; }
+    dd { margin-bottom: 0.55rem; }
+  }
+
+  .why {
+    font-size: 0.86rem;
+    color: var(--ink-soft);
+    border-top: 1px dashed var(--rule-strong);
+    padding-top: 0.85rem;
+  }
+  .why strong { color: var(--ink); font-weight: 600; }
+
+  /* Security answers */
+  .qa { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--rule); border-radius: 3px; overflow: hidden; }
+  .qa-row {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    gap: 0.6rem 1rem; padding: 0.9rem 1.2rem; background: var(--raised);
+    border-bottom: 1px solid var(--rule);
+  }
+  .qa-row:last-child { border-bottom: none; }
+  .qa-q { font-size: 0.94rem; max-width: 42rem; }
+
+  ol.steps { margin: 0; padding-left: 1.3rem; display: flex; flex-direction: column; gap: 0.7rem; }
+  ol.steps li { padding-left: 0.3rem; }
+  ol.steps li::marker { font-family: "IBM Plex Mono", monospace; font-size: 0.85rem; color: var(--accent); }
+
+  .note {
+    border-left: 2px solid var(--rule-strong);
+    padding-left: 1rem;
+    font-size: 0.9rem;
+    color: var(--ink-soft);
+  }
+  footer { border-top: 1px solid var(--rule); padding-top: 1.3rem; font-size: 0.83rem; color: var(--ink-faint); }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Enhanzo · com.techneoo.ai.photo.enhancer · version code 7</p>
+    <h1>Data safety declaration</h1>
+    <p class="lede">Every answer below is derived from what the app actually does — the SDKs in the bundle, the permissions in the merged manifest, and the requests the code makes. Each record says where the evidence came from.</p>
+  </header>
+
+  <div class="cause">
+    <h2>Why version 7 was rejected</h2>
+    <p>Meta Audience Network merges the advertising-ID permission into your manifest. Play sees it, expects <strong>Device or other IDs</strong> to be declared as collected, and finds nothing.</p>
+    <pre>$ grep AD_ID app/build/.../AndroidManifest.xml
+android:name="com.google.android.gms.permission.AD_ID"</pre>
+    <p>Declaring that one type is the minimum fix. The other four below are also true of the app, and an incomplete declaration is the same violation found later.</p>
+  </div>
+
+  <section>
+    <div class="section-head">
+      <p class="eyebrow">Step 1</p>
+      <h2>Data types to declare</h2>
+      <p class="lede">Play Console → App content → Data safety → Data collection and security.</p>
+    </div>
+
+    <div class="record flagged">
+      <div class="record-top">
+        <h3>Device or other IDs</h3>
+        <span class="cat">Device or other IDs</span>
+      </div>
+      <div class="chips">
+        <span class="chip yes">Collected</span>
+        <span class="chip yes">Shared</span>
+        <span class="chip warn">This is the rejection</span>
+      </div>
+      <dl>
+        <dt>Purposes</dt>
+        <dd>Advertising or marketing · Fraud prevention, security and compliance · App functionality</dd>
+        <dt>Required?</dt>
+        <dd>Required — users can't turn it off</dd>
+        <dt>Ephemeral?</dt>
+        <dd>No</dd>
+      </dl>
+      <p class="why"><strong>Two separate identifiers.</strong> Meta Audience Network reads the Google Advertising ID to serve and measure ads, and that is genuinely <em>shared</em> — Meta uses it for their own targeting, so the service-provider exemption does not apply. Separately, <code>DeviceId</code> generates a random UUID per install and sends it as <code>X-Device-Id</code> so the proxy can apply fair-use limits; that one goes only to your own backend, but it is still a device ID and still collected.</p>
+    </div>
+
+    <div class="record">
+      <div class="record-top">
+        <h3>Photos</h3>
+        <span class="cat">Photos and videos → Photos</span>
+      </div>
+      <div class="chips">
+        <span class="chip yes">Collected</span>
+        <span class="chip no">Not shared</span>
+      </div>
+      <dl>
+        <dt>Purposes</dt>
+        <dd>App functionality</dd>
+        <dt>Required?</dt>
+        <dd>Required — there is no app without a photo</dd>
+        <dt>Ephemeral?</dt>
+        <dd>No — Replicate stores the upload while the model runs</dd>
+      </dl>
+      <p class="why"><strong>Not shared, because Replicate processes on your behalf.</strong> Play excludes transfers to a service provider from "sharing". The selection mask the brush tools upload belongs here too — it is an image derived from the user's photo. Answer <em>no</em> to ephemeral: the file is written to Replicate's Files API, not merely held in memory.</p>
+    </div>
+
+    <div class="record">
+      <div class="record-top">
+        <h3>Other user-generated content</h3>
+        <span class="cat">App activity → Other user-generated content</span>
+      </div>
+      <div class="chips">
+        <span class="chip yes">Collected</span>
+        <span class="chip no">Not shared</span>
+      </div>
+      <dl>
+        <dt>Purposes</dt>
+        <dd>App functionality</dd>
+        <dt>Required?</dt>
+        <dd>Optional — only two tools ask for one</dd>
+        <dt>Ephemeral?</dt>
+        <dd>No</dd>
+      </dl>
+      <p class="why"><strong>The text prompts.</strong> Inpainting and AI Expand send whatever the user types to the model. Play has no category named for AI prompts; this is the closest true one. Users who never open those two tools never send any, which is what makes it optional.</p>
+    </div>
+
+    <div class="record">
+      <div class="record-top">
+        <h3>Purchase history</h3>
+        <span class="cat">Financial info → Purchase history</span>
+      </div>
+      <div class="chips">
+        <span class="chip yes">Collected</span>
+        <span class="chip no">Not shared</span>
+      </div>
+      <dl>
+        <dt>Purposes</dt>
+        <dd>App functionality · Account management</dd>
+        <dt>Required?</dt>
+        <dd>Optional — only for subscribers</dd>
+        <dt>Ephemeral?</dt>
+        <dd>No</dd>
+      </dl>
+      <p class="why"><strong>RevenueCat records the subscription</strong> so the app can tell whether Premium is active. No card or bank details ever reach the app — Google Play handles payment entirely. RevenueCat is a service provider, so this is collected but not shared.</p>
+    </div>
+
+    <div class="record">
+      <div class="record-top">
+        <h3>App interactions</h3>
+        <span class="cat">App activity → App interactions</span>
+      </div>
+      <div class="chips">
+        <span class="chip yes">Collected</span>
+        <span class="chip yes">Shared</span>
+      </div>
+      <dl>
+        <dt>Purposes</dt>
+        <dd>Advertising or marketing · Analytics</dd>
+        <dt>Required?</dt>
+        <dd>Required</dd>
+        <dt>Ephemeral?</dt>
+        <dd>No</dd>
+      </dl>
+      <p class="why"><strong>Meta's SDK, not yours.</strong> Audience Network logs ad impressions and clicks back to Meta. Your own code collects no analytics — there is no analytics SDK in the bundle. Cross-check this one against Meta's current publisher guidance before you submit, since it describes their behaviour rather than code you can read.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <p class="eyebrow">Step 2</p>
+      <h2>Security practices</h2>
+      <p class="lede">The four questions Play asks after the data types.</p>
+    </div>
+    <div class="qa">
+      <div class="qa-row">
+        <span class="qa-q">Is all of the user data collected by your app encrypted in transit?</span>
+        <span class="chip yes">Yes</span>
+      </div>
+      <div class="qa-row">
+        <span class="qa-q">Do you provide a way for users to request that their data is deleted?</span>
+        <span class="chip yes">Yes</span>
+      </div>
+      <div class="qa-row">
+        <span class="qa-q">Have you committed to follow the Play Families Policy?</span>
+        <span class="chip no">No</span>
+      </div>
+      <div class="qa-row">
+        <span class="qa-q">Has your app been independently validated against a global security standard?</span>
+        <span class="chip no">No</span>
+      </div>
+    </div>
+    <p class="note"><strong>Encrypted in transit</strong> is yes because every request the app makes is HTTPS — the Cloudflare proxy, Replicate, RevenueCat and Meta. <strong>Deletion</strong> is yes because History has a delete action, saved edits are purged automatically after 30 days, and the privacy policy gives an address for anything device- or purchase-linked. Play will ask for a deletion URL or email: use <span class="mono">itechcoderdev@gmail.com</span>, the address already in the policy.</p>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <p class="eyebrow">Step 3</p>
+      <h2>Two answers elsewhere that must agree</h2>
+    </div>
+    <ol class="steps">
+      <li><strong>Advertising ID declaration.</strong> App content → Advertising ID. Answer <em>yes, the app uses advertising ID</em>, and tick <em>Advertising or marketing</em> plus <em>Analytics</em>. Leaving this at "no" while <code>AD_ID</code> sits in the manifest is the same contradiction as the one that just failed.</li>
+      <li><strong>Ads declaration.</strong> App content → Ads. Answer <em>yes, this app contains ads</em>. Free users see a Meta interstitial after an enhancement.</li>
+    </ol>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <p class="eyebrow">Step 4</p>
+      <h2>Before you submit</h2>
+    </div>
+    <ol class="steps">
+      <li>Host the privacy policy. It is written and generated at <span class="mono">docs/privacy-policy.html</span>, but GitHub Pages is still switched off, so the URL 404s. Settings → Pages → main → <span class="mono">/docs</span>. <strong>Play will not accept the declaration without a reachable policy URL.</strong></li>
+      <li>Paste that URL into App content → Privacy policy, and into RevenueCat's paywall footer links.</li>
+      <li>Check the policy against this page. It was updated today to name the masks, the prompts and the install identifier, all of which were missing — Play rejects a declaration that disagrees with the policy.</li>
+      <li>Upload a new bundle. Version code 7 carries the rejection; the next upload needs 8.</li>
+    </ol>
+  </section>
+
+  <footer>
+    Derived from version code 7 · merged release manifest, <span class="mono">pubspec.yaml</span>, and the request code in <span class="mono">lib/data/</span>. The Meta Audience Network rows describe a third-party SDK's behaviour and are the ones worth re-checking against Meta's own publisher documentation.
+  </footer>
+
+</div>
